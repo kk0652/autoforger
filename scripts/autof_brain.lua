@@ -1,5 +1,7 @@
 local Brain = {}
 
+local behaviors = require('autof_behaviors')
+
 function Brain:Initialize()
 	Brain.owner = ThePlayer
 	Brain.team = {}
