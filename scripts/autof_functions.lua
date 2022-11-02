@@ -20,6 +20,10 @@ local defaultDelays = { -- should it be here? Though it needs some sorting if so
     Pocketwatch = 360,
     -- Hallowed Forge
     Graveaxe    = 160,
+    HornBundle  = 295,
+    FireFlask   = 295,
+    EctoSpear   = 295,
+    BoneCrusher = 295,
 }
 
 local function GetWeapon(weapon)
@@ -28,7 +32,7 @@ local function GetWeapon(weapon)
             return 'Dart'
         elseif weapon.prefab:find('staff') then
             return 'Staff'
-        elaeif weapon:HasTag('book') then
+        elseif weapon:HasTag('book') then
             return 'Book'
         elseif weapon.prefab:find('hammer') then
             return 'Hammer'
@@ -43,11 +47,10 @@ local function GetWeapon(weapon)
        elseif weapon.prefab:find('blacksmithsedge') then
            return 'Sword'
        -- ReForged
-       elseif weapon.prefab:find('slingshot') then
+       elseif weapon:HasTag('slingshot') then
            return 'Slingshot'
        elseif weapon:HasTag('soulstealer') then
            return 'SoulStaff'
-        end
        elseif weapon.prefab:find('spice_bomb') then
            return 'SpiceBomb'
        elseif weapon.prefab:find('spatula') then
@@ -57,6 +60,18 @@ local function GetWeapon(weapon)
        elseif weapon.prefab:find('pocketwatch') then
            return 'Pocketwatch'
        -- Hallowed Forge
+        elseif weapon.prefab:find('hf_grave_axe') then
+            return 'Graveaxe'
+        elseif weapon.prefab:find('hf_horn_bundle') then
+            return 'HornBundle'
+        elseif weapon.prefab:find('hf_fire_flask') then
+            return 'FireFlask'
+        elseif weapon.prefsb:find('hf_ectospear') then
+            return 'EctoSpear'
+        elseif weapon.prefsb:find('hf_bone_mace') then
+            return 'BoneCrusher'
+        end
+        -- correct me if I'm wrong, I'm not sure about HF prefabs
     end
     return 'Hand'
 end
@@ -67,7 +82,7 @@ local function GetScreenName() -- does it need to be part of fns?
     return screenName
 end
 
-function fns.GetDefaultDelay(weapon)
+function fns.GetDefaultDelays(weapon)
     return defaultDelays(GetWeapon(weapon))
 end
 
@@ -88,7 +103,7 @@ function fns.SendRPC(...)
 end
 
 function fns.print(...)
-    print("[Autof]:", ...)
+    print("[AutoF]: ", ...)
 end
 
 function fns.IsInGame()
@@ -98,6 +113,10 @@ end
 function fns.GetRFSettings()
     if not IsInGame() then return end
     return REFORGED_SETTINGS ~= nil and REFORGED_SETTINGS.gameplay
+end
+
+function fns.GetRFData()
+    return REFORGED_DATA ~= nil
 end
 
 function fns.IsHUDScreen()
