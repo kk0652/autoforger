@@ -10,7 +10,10 @@ function Brain:Initialize()
 	Brain.expectedWave = {}
 	Brain.light = 'no'
 	Brain.expectedLights = {}
-	}
+end
+
+function Brain:SetBehavior(behavior)
+    
 end
 
 function Brain:NextTask()

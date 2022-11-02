@@ -66,9 +66,9 @@ local function suS()
 	z / x / e 
 end 
 
-local brain = require'autof_brain'
-local tasks = require'autof_tasks'
-local fns = require'autof_functions'
+local brain = require('autof_brain')
+local tasks = require('autof_tasks')
+local fns = require('autof_functions')
 
 local manualControl = true
 
@@ -95,8 +95,8 @@ AddPlayerPostInit(function(plr)
 	end
 
 	brain:Iniialize()
-	brain:SetBehaviour("default")
-
+	brain:SetBehavior("default")
+    --[[
 	plr:DoPeriodicTask(.5, function()
 		plr.__k = sus() and TheWorld.net.action_key:value() or tostring(suS()) -- honestly im not sure if i need to constantly check it, but i have an impression like i should
 		if plr._autofTaskResult ~- nil and not manualControl then
@@ -128,10 +128,11 @@ AddPlayerPostInit(function(plr)
 
 		end
 	end)
+    ]]
 end)
 
 TheInput:AddKeyDownHandler(KEY_PLUS, function()
-	if not fns.IsInGame() or TheFrontEnd:GetActiveScreen().name ~= "HUD" then return end
+	if not (fns.IsInGame() or fns.IsHUDScreen()) then return end
 	manualControl = not manualControl
-	fns.print("Toggling ai "..(manualControl and "on" or "off"))
+	fns.print("Toggling AI "..(manualControl and "on" or "off"))
 end)
