@@ -4,6 +4,14 @@ local fns = require'autof_functions'
 
 local mobMemorySize = 12
 local sameMobMemoryMax = 8
+local playersEquips = {}
+
+function playersEquips.add(whom, slot, what)
+	if playersEquips[whom] == nil then
+		playersEquips[whom] = {}
+	end
+	playersEquips[whom][slot] = what
+end
 
 local function GetSettings()
 	if not fns.IsInGame() then return end
@@ -18,9 +26,9 @@ local function IsTargetAlive(target)
     return target ~= nil and target.replica.health ~= nil and not target.replica.health:IsDead()
 end 
 
-local function FindEntities(tags)
+local function FindEntities(tags, r)
 	local x, _, z = ThePlayer:GetPosition():Get()
-	return TheSim:FindEntities(x, 0, z, 60, tags)
+	return TheSim:FindEntities(x, 0, z, r or 60, tags)
 end
 
 local function UpdateMobs(mobs)
@@ -56,11 +64,81 @@ local function GetAggro(inst)
 end
 
 local function IsInHeal(inst)
-	return false -- туду
+	return inst:HasTag('_isinheals')
 end
 
+local function ResolveItemSlot(inst)
+	if fns.CheckDebugString(inst, "build: armor") then
+		return 'body'
+	elseif fns.CheckDebugString(inst, 'build: hat') then
+		return 'head'
+	else
+		return 'hand'
+	end
+end
+
+local function InitializeScanner()
+	if ThePlayer.autofScanner ~= nil then return end
+	ThePlayer.autofScanner = ThePlayer:StartThread(function()
+		local ents
+		local ent
+		while true do
+			ents = FindEntities({"LA_mob"}, 12)
+			for i = 1, #ents do
+				ent = ents[i]
+				if        fns.CheckDebugString(ent, "zip:attack Frame: 0")
+				or       fns.CheckDebugString(ent, "zip:attack1 Frame: 0")
+				or      fns.CheckDebugString(ent, "zip:attack1b Frame: 0")
+				or       fns.CheckDebugString(ent, "zip:attack2 Frame: 0")
+				or       fns.CheckDebugString(ent, "zip:attack3 Frame: 0")
+				or       fns.CheckDebugString(ent, "zip:attack4 Frame: 0")
+				or       fns.CheckDebugString(ent, "zip:attack5 Frame: 0")
+				or          fns.CheckDebugString(ent, "zip:spit Frame: 0")
+				or 	  fns.CheckDebugString(ent, "zip:attack_pre Frame: 0")
+				or   fns.CheckDebugString(ent, "zip:attack2_pre Frame: 0")
+				or      fns.CheckDebugString(ent, "zip:roll_pre Frame: 0")
+				or        fns.CheckDebugString(ent, "zip:taunt2 Frame: 0")
+				or     fns.CheckDebugString(ent, "zip:bellyflop Frame: 0")
+				or fns.CheckDebugString(ent, "zip:block_counter Frame: 0")
+				then
+					ent.last_attack = GetTime()
+				end
+			end
+			ents = FindEntities({"LA_mob"})
+			for i = 1, #ents do
+				if CheckDebugString(ent, "hit") then
+					if ent.hitq ~= nil then
+						ent.hitq = ent.hitq + 1
+					else
+						ent.hitq = 1
+					end
+				end
+			end
+			ents = FindEntities({"_inventoryitem"})
+			for i = 1, #ents do
+				ent = ents[i]
+				if ent.marked == nil then
+					ent:DoPeriodicTask(.5 function()
+						if ent:HasTag("INLIMBO") then
+							if  ent.eqby == nil then
+								playersEquips.add(ent:GetNearestPlayer().userid, ResolveItemSlot(ent), ent)
+								ent.eqby = ent:GetNearestPlayer().userid
+							end
+						elseif ent.eqby ~= nil then
+							playersEquips[ent.eqby][ResolveItemSlot(ent)] = nil
+							ent.eqby = nil
+						end
+					end)
+					ent.marked = true
+				end
+			end
+		end
+	end)
+end
+
+
 local function ExtractDataFromMob(mob)
-	local t = {
+	return {
 			prefab = ent.prefab,
 			rel_pos = GetRelativePos(ent),
 			hit_quantity = ent.hitq or 0,
@@ -111,7 +189,7 @@ local function GetMobsDataTable()
 		if j > mobMemorySize then break end
 		if seenMobs[ent.prefab] ~= nil then
 			seenMobs[ent.prefab] = seenMobs[ent.prefab] + 1
-		elseif seenMobs[ent.prefab] <= sameMobMemoryMax then
+		else
 			seenMobs[ent.prefab] = 1
 		end
 		if seenMobs[ent.prefab] <= sameMobMemoryMax then
@@ -138,6 +216,10 @@ local function GetMobsDataTable()
 	return mobsData
 end
 
+local function GetEquips(userid)
+	return playersEquips[userid] or {}
+end
+
 local function GetTeamData()
 	--[[
 	data of one player:
@@ -146,7 +228,7 @@ local function GetTeamData()
 	relative_position,
 	%health,
 	equips_hands,
-	equips_body, -- if i can see what they are wearing, the mod also can, right? rigth?? -- if no, i can just track all the equipment from the beginning
+	equips_body,
 	equips_head,
 	userid,
 	iscasting_long,
@@ -155,9 +237,24 @@ local function GetTeamData()
 	--]]
 	if not fns.IsInGame() then return end
 	local playersData = {}
-	local players = FindEntities({"_player"})
+	local players = FindEntities({"player"})
+	local player
+	local equips
 	for i = 2, #players do
-		helpme() -- actually i don't think it's too complicated, but im just too tired rn to finish this function
+		player = players[i]
+		if player.prefab ~= 'spectator' then
+			equips = GetEquips(player.userid)
+			playersData[i - 1] = {
+				prefab = player.prefab,
+				rel_pos = GetRelativePos(player),
+				health = GetPlayerHealth(player),
+				eqhand = equips.hand,
+				eqbody = equips.body,
+				eqhead = equips.head,
+				userid = player.userid,
+				iscasting = CheckDebugString(player, "zip: staff") -- i don't think it will really be useful, but oh well
+			}
+		end
 	end
 	return status
 end
