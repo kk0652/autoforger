@@ -1,6 +1,6 @@
 local fns = {}
 
-local defaultDelays = { -- should it be here? Though it needs some sorting if so
+local defaultDelays = { -- should it be here? Though it needs some sorting if so | why sorting, it's a hash table
     Hand        = 295,
     Dart        = 195,
     Staff       = 160,
@@ -12,7 +12,7 @@ local defaultDelays = { -- should it be here? Though it needs some sorting if so
     Bomb        = 295,
     Sword       = 295,
     -- ReForged
-    Slingshot   = 395,-- should it be higher? 420??
+    Slingshot   = 395,-- should it be higher? 420?? | 999)
     SoulStaff   = 295,
     SpiceBomb   = 295,
     Spatula     = 295,
@@ -71,12 +71,12 @@ local function GetWeapon(weapon)
         elseif weapon.prefsb:find('hf_bone_mace') then
             return 'BoneCrusher'
         end
-        -- correct me if I'm wrong, I'm not sure about HF prefabs
+        -- correct me if I'm wrong, I'm not sure about HF prefabs | idk any of them and it'll be a big while before i will think about hallowed in the context of this mod, if ever
     end
     return 'Hand'
 end
 
-local function GetScreenName() -- does it need to be part of fns?
+local function GetScreenName() -- does it need to be part of fns? | not sure whether mod's control will become complex enough to use this, but maybe in the future
     local screen = GLOBAL.TheFrontEnd:GetActiveScreen()
     local screenName = screen and screen.name or ''
     return screenName
@@ -86,19 +86,11 @@ function fns.GetDefaultDelays(weapon)
     return defaultDelays(GetWeapon(weapon))
 end
 
-function fns.IsTargetValid(target)
-    return target ~= nil and target:IsValid()
-end
-
-function fns.IsTargetAlive(target)
-    return target ~= nil and target.replica.health ~= nil and not target.replica.health:IsDead()
-end 
-
 function fns.SendRPC(...)
     if ThePlayer.__k ~= nil then
 	TheNet:SendRPCToServer(...)
     else
-	SendRPCToServer(...) -- do we really need? I think it should be deprecated
+	SendRPCToServer(...) -- do we really need? I think it should be deprecated | you will get a big red cheater above your head if you try the first method in current reforged
     end
 end
 
@@ -108,11 +100,6 @@ end
 
 function fns.IsInGame()
     return ThePlayer ~= nil
-end
-
-function fns.GetRFSettings()
-    if not IsInGame() then return end
-    return REFORGED_SETTINGS ~= nil and REFORGED_SETTINGS.gameplay
 end
 
 function fns.GetRFData()
@@ -128,5 +115,11 @@ function fns.IsLobbyScreen()
     local screenName = GetScreenName()
     return screenName:find('LobbyScreen') ~= nil
 end
+
+function fns.GetDebugString(inst, str)
+    local debugstring = inst and inst.entity:GetDebugString()
+    return debugstring and debugstring:find(str)
+end
+
 
 return fns

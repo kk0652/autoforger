@@ -3,15 +3,7 @@ local Brain = {}
 local behaviors = require('autof_behaviors')
 
 function Brain:Initialize()
-	Brain.owner = ThePlayer
-	Brain.team = {}
-	Brain.mobs = {}
-	Brain.settings = {}
-	Brain.role = ''
-	Brain.consecutiveFailedTask = {name = '', n = 0}
-	Brain.expectedWave = {}
-	Brain.light = 'no'
-	Brain.expectedLights = {}
+	
 end
 
 function Brain:SetBehavior(behavior)
@@ -23,8 +15,8 @@ function Brain:NextTask()
 end
 
 function Brain:EvaluateYourActions()
-	-- the hardest part probably
-
+	-- this function should observe what you do, and recognise your actions as tasks that you did manually
+	-- guess for what i think it'll be used, hehe
 
 end
 

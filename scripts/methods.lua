@@ -1,3 +1,4 @@
+-- guess why is all of this here? hehe
 
 function new_table(n, value)
 	local t = {}
