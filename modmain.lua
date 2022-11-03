@@ -1,5 +1,7 @@
 GLOBAL.setmetatable(env, {__index = function(t, k) return GLOBAL.rawget(GLOBAL, k) end})
 
+local DEBUG = true
+
 if TheNet:GetServerGameMode() ~= "lavaarena" then return end
 
 -- don't copy and use sus things anywhere else please
@@ -66,16 +68,17 @@ local function suS()
 	z / x / e 
 end 
 
-local brain = require('autof_brain')
-local tasks = require('autof_tasks')
+--local brain = require('autof_brain')
+--local tasks = require('autof_tasks')
 local fns = require('autof_functions')
-
+local sensors = require('autof_sensors')
 local manualControl = true
 
 AddPlayerPostInit(function(plr)
-
-	plr._autofLastResponseTime = 0
-
+	plr:DoTaskInTime(.5, function() sensors.InitializeScanner(plr) end)
+	
+	--plr._autofLastResponseTime = 0
+--[[
 	function plr:DoAutofTask(params)
 		if plr._autofCurrentTask ~= nil then
 			fns.print("Trying to run a task while one is already active")
@@ -92,10 +95,10 @@ AddPlayerPostInit(function(plr)
 			fns.print('Starting a task "'..params.name..'" with params:\n', SerializeTable(params))
 			task(params)
 		end)
-	end
+	end--]]
 
-	brain:Iniialize()
-	brain:SetBehavior("default")
+	--brain:Iniialize()
+	--brain:SetBehavior("default")
     --[[
 	plr:DoPeriodicTask(.5, function()
 		plr.__k = sus() and TheWorld.net.action_key:value() or tostring(suS()) -- honestly im not sure if i need to constantly check it, but i have an impression like i should
@@ -131,8 +134,15 @@ AddPlayerPostInit(function(plr)
     ]]
 end)
 
+--[[
 TheInput:AddKeyDownHandler(KEY_PLUS, function()
 	if not (fns.IsInGame() or fns.IsHUDScreen()) then return end
 	manualControl = not manualControl
 	fns.print("Toggling AI "..(manualControl and "on" or "off"))
 end)
+--]]
+TheInput:AddKeyDownHandler(KEY_N, function()
+	if not (fns.IsInGame() or fns.IsHUDScreen()) or not DEBUG then return end
+	print(sensors.SerializeData(true))
+end)
+

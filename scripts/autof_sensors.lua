@@ -54,13 +54,13 @@ local function UpdateMobs(mobs)
 end
 
 local function GetRelativePos(inst)
-	local center = TheWorld.net.center_pos or TheWorld.components.lavaarenaevent:GetArenaCenterPoint() -- idk which one would work on client, but i'd bet on former
-	local pos = inst.Transform:GetPosition()
-	return Vector3(pos.x - center.x, 0, pos.z - center.z)
+	local center = TheWorld.net.center_pos
+	local x, _, z = inst.Transform:GetWorldPosition()
+	return Vector3(x - center.x, 0, z - center.z)
 end
 
 local function GetAggro(inst)
-	return ent.replica.combat:GetTarget().userid or ''
+	return inst.replica.combat:GetTarget().userid or ''
 end
 
 local function IsInHeal(inst)
@@ -77,11 +77,13 @@ local function ResolveItemSlot(inst)
 	end
 end
 
-local function InitializeScanner()
-	if ThePlayer.autofScanner ~= nil then return end
-	ThePlayer.autofScanner = ThePlayer:StartThread(function()
+function Sensors.InitializeScanner(plr)
+	if plr.autofScanner ~= nil then return end
+	plr.autofScanner = plr:StartThread(function()
 		local ents
 		local ent
+		local f, flag -- too bad
+		local p
 		while true do
 			ents = FindEntities({"LA_mob"}, 12)
 			for i = 1, #ents do
@@ -106,7 +108,7 @@ local function InitializeScanner()
 			end
 			ents = FindEntities({"LA_mob"})
 			for i = 1, #ents do
-				if CheckDebugString(ent, "hit") then
+				if fns.CheckDebugString(ent, "hit") then
 					if ent.hitq ~= nil then
 						ent.hitq = ent.hitq + 1
 					else
@@ -118,26 +120,31 @@ local function InitializeScanner()
 			for i = 1, #ents do
 				ent = ents[i]
 				if ent.marked == nil then
-					ent:DoPeriodicTask(.5 function()
-						if ent:HasTag("INLIMBO") then
-							if  ent.eqby == nil then
-								playersEquips.add(ent:GetNearestPlayer().userid, ResolveItemSlot(ent), ent)
-								ent.eqby = ent:GetNearestPlayer().userid
-							end
-						elseif ent.eqby ~= nil then
-							playersEquips[ent.eqby][ResolveItemSlot(ent)] = nil
-							ent.eqby = nil
+					if not flag then
+						f = ent.Remove
+						flag = true
+					end
+					p = ent:GetNearestPlayer().userid
+					ent.Remove = function(t, ...)
+						if t:GetDistanceSqToInst(t:GetNearestPlayer()) < 1.5 then
+							playersEquips.add(t:GetNearestPlayer().userid, ResolveItemSlot(t), t.prefab)
 						end
-					end)
+						ent.marked = nil
+						f(t, ...)
+					end
+					if ent:GetDistanceSqToInst(ent:GetNearestPlayer()) < 1.5 and playersEquips[p] and playersEquips[p][ResolveItemSlot(ent)] == ent.prefab then
+						playersEquips[p][ResolveItemSlot(ent)] = nil
+					end
 					ent.marked = true
 				end
 			end
+			Sleep(0)
 		end
 	end)
 end
 
 
-local function ExtractDataFromMob(mob)
+local function ExtractDataFromMob(ent)
 	return {
 			prefab = ent.prefab,
 			rel_pos = GetRelativePos(ent),
@@ -148,7 +155,8 @@ local function ExtractDataFromMob(mob)
 			guard = fns.CheckDebugString(ent, "zip:hide") or fns.CheckDebugString(ent, "turtillus_basic.zip:attack2"),
 			debuff = ent:HasTag("haunted"),
 			attack_time = ent.last_attack or 0,
-			epic = ent:HasTag('epic')
+			epic = ent:HasTag('epic'),
+			guid = ent.GUID
 			}
 end
 
@@ -216,11 +224,18 @@ local function GetMobsDataTable()
 	return mobsData
 end
 
-local function GetEquips(userid)
-	return playersEquips[userid] or {}
+local function GetEquips(userid,prefab)
+	if playersEquips[userid] == nil then
+		playersEquips[userid] = {hand = TUNING.GAMEMODE_STARTING_ITEMS.LAVAARENA[prefab][1], body = TUNING.GAMEMODE_STARTING_ITEMS.LAVAARENA[prefab][2]}
+	end
+	return playersEquips[userid]
 end
 
-local function GetTeamData()
+local function GetPlayerHealth(player)
+	return player.components.healthsyncer._healthpct:value()
+end
+
+local function GetTeamDataTable()
 	--[[
 	data of one player:
 	{
@@ -243,7 +258,7 @@ local function GetTeamData()
 	for i = 2, #players do
 		player = players[i]
 		if player.prefab ~= 'spectator' then
-			equips = GetEquips(player.userid)
+			equips = GetEquips(player.userid, player.prefab:upper())
 			playersData[i - 1] = {
 				prefab = player.prefab,
 				rel_pos = GetRelativePos(player),
@@ -252,9 +267,20 @@ local function GetTeamData()
 				eqbody = equips.body,
 				eqhead = equips.head,
 				userid = player.userid,
-				iscasting = CheckDebugString(player, "zip: staff") -- i don't think it will really be useful, but oh well
+				iscasting = fns.CheckDebugString(player, "zip:staff") -- i don't think it will really be useful, but oh well
 			}
 		end
 	end
-	return status
+	return playersData
 end
+
+function Sensors.SerializeData(inclmobs)
+	local data = "\nPlayers data:"
+	local tbl = GetTeamDataTable()
+	for k,v in ipairs(tbl) do
+		data = data.."\nPlayer 1 | "..v.prefab.." | "..v.userid..":\n".."  Health: "..math.ceil(v.health*100).." | Position: "..tostring(v.rel_pos).." | Is casting: "..tostring(v.iscasting ~= nil).."\n  Hand: "..(v.eqhand or "EMPTY").." Body: "..(v.eqbody or "EMPTY").." Head: "..(v.eqhead or "EMPTY")
+	end
+	return inclmobs and data.."\nMobs data:\n"..SerializeTable(GetMobsDataTable()) or data
+end
+
+return Sensors

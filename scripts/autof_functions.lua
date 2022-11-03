@@ -77,7 +77,7 @@ local function GetWeapon(weapon)
 end
 
 local function GetScreenName() -- does it need to be part of fns? | not sure whether mod's control will become complex enough to use this, but maybe in the future
-    local screen = GLOBAL.TheFrontEnd:GetActiveScreen()
+    local screen = TheFrontEnd:GetActiveScreen()
     local screenName = screen and screen.name or ''
     return screenName
 end
@@ -116,7 +116,7 @@ function fns.IsLobbyScreen()
     return screenName:find('LobbyScreen') ~= nil
 end
 
-function fns.GetDebugString(inst, str)
+function fns.CheckDebugString(inst, str)
     local debugstring = inst and inst.entity:GetDebugString()
     return debugstring and debugstring:find(str)
 end
