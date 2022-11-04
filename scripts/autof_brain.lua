@@ -1,8 +1,8 @@
 local Brain = {}
 
-local behaviors = require('autof_behaviors')
+local sensors = require'autof_sensors'
 
-function Brain:Initialize()
+function Brain:Initialize(plr)
 	
 end
 
@@ -14,9 +14,7 @@ function Brain:NextTask()
 
 end
 
-function Brain:EvaluateYourActions()
-	-- this function should observe what you do, and recognise your actions as tasks that you did manually
-	-- guess for what i think it'll be used, hehe
+function Brain:ActionReport(params) -- functions from different module(s) will intercept rpcs and actionbuttons usages and report them to brain, so it would know what exactly you did
+	Brain.manual_action = params.action
 
 end
-

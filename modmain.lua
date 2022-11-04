@@ -73,10 +73,46 @@ end
 local fns = require('autof_functions')
 local sensors = require('autof_sensors')
 
+
+
 local manualControl = true
 
 AddPlayerPostInit(function(plr)
-	plr:DoTaskInTime(0, function() sensors.InitializeScanner(plr) end)
+
+	local _srpc = TheNet.SendRPCToServer
+	getmetatable(TheNet).__index.SendRPCToServer = function(rpc, code, x, z, t1, t2, t3, t4, t5, ...)
+		local vecx, _, vecz = plr:GetPosition():Get()
+		local direction, target
+		if code == ACTIONS.WALKTO.code then
+			vecx = x - vecx
+			vecz = z - vecz
+			direction = Vector3(vecx / math.max(vecx, vecz), 0, vecz / math.max(vecx, vecz))
+		elseif rpc == RPC.DirectWalking then
+			direction = Vector3(x, 0, z)
+		elseif rpc == RPC.DragWaling then
+			vecx = x - vecx
+			vecz = z - vecz
+			direction = Vector3(vecx / math.max(vecx, vecz), 0, vecz / math.max(vecx, vecz))
+		elseif rpc == RPC.PredictWalking then
+			vecx = x - vecx
+			vecz = z - vecz
+			direction = Vector3(vecx / math.max(vecx, vecz), 0, vecz / math.max(vecx, vecz))
+		elseif rpc == RPC.AttackButton then
+			target = code
+			-- я хочу понимать какое действие совершал игрок последнюю долю секунды, но что-то както сложно находить это(
+		elseif ...
+		end
+		if direction then
+			brain.lastAction:ReportAction({action = 'walk', direction = direction})
+		end
+
+	end
+
+	end
+	plr:DoTaskInTime(0, function()
+		sensors.InitializeScanner(plr)
+		--brain:Initialize(plr)
+	end)
 	
 	--plr._autofLastResponseTime = 0
 --[[

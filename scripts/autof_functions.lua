@@ -87,10 +87,10 @@ function fns.GetDefaultDelays(weapon)
 end
 
 function fns.SendRPC(...)
-    if ThePlayer.__k ~= nil then
-	TheNet:SendRPCToServer(...)
+    if not ThePlayer.__k:find('.') then
+	   TheNet:SendRPCToServer(...)
     else
-	SendRPCToServer(...) -- do we really need? I think it should be deprecated | you will get a big red cheater above your head if you try the first method in current reforged
+	   SendRPCToServer(...)
     end
 end
 
