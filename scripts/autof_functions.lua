@@ -111,15 +111,40 @@ function fns.IsHUDScreen()
     return screenName:find('HUD') ~= nil
 end
 
+
 function fns.IsLobbyScreen()
     local screenName = GetScreenName()
     return screenName:find('LobbyScreen') ~= nil
+end
+
+function fns.GenerateBinaryIndexingTableForOptions(options)
+    local b = 1
+    while 2^b < #options do b = b + 1 end
+    local output = {}
+    for i = 1, #options do
+        output[i] = {}
+        for j = 0, b-1 do
+            output[i][j] = math.floor((i-1) / 2^j) % 2
+        end
+    end
+    return output
 end
 
 function fns.CheckDebugString(inst, str)
     local debugstring = inst and inst.entity:GetDebugString()
     return debugstring and debugstring:find(str)
 end
-
+function fns.FlattenSecondAndExtendFirst(first, second, k)
+    k = k or #first + 1
+    for i = 1, #second do
+        if type(second[i]) == 'table' then
+            first, k = fns.FlattenSecondAndExtendFirst(first, second[i], k)
+        else
+            first[k] = second[i]
+            k = k + 1
+        end
+    end
+    return first, k
+end
 
 return fns

@@ -73,14 +73,17 @@ end
 local fns = require('autof_functions')
 local sensors = require('autof_sensors')
 
+MOB_MEMORY_SIZE = 24
+PLAYER_MEMORY_SIZE = 15
+ITEM_MEMORY_SIZE = 24
 
 
 local manualControl = true
 
 AddPlayerPostInit(function(plr)
 
-	local _srpc = TheNet.SendRPCToServer
-	getmetatable(TheNet).__index.SendRPCToServer = function(rpc, code, x, z, t1, t2, t3, t4, t5, ...)
+--[[	local _srpc = TheNet.SendRPCToServer
+	getmetatable(TheNet).__index.SendRPCToServer = function(proxy, rpc, code, x, z, t1, t2, t3, t4, t5, ...)
 		local vecx, _, vecz = plr:GetPosition():Get()
 		local direction, target
 		if code == ACTIONS.WALKTO.code then
@@ -106,10 +109,9 @@ AddPlayerPostInit(function(plr)
 			brain.lastAction:ReportAction({action = 'walk', direction = direction})
 		end
 
-	end
+	end--]]
 
-	end
-	plr:DoTaskInTime(0, function()
+	plr:ListenForEvent("playeractivated", function()
 		sensors.InitializeScanner(plr)
 		--brain:Initialize(plr)
 	end)

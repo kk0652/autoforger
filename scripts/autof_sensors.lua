@@ -2,11 +2,8 @@ local Sensors = {}
 
 local fns = require'autof_functions'
 
-local mobMemorySize = 12
 local sameMobMemoryMax = 8
-local playerMemorySize = 12
 local playersEquips = {}
-local itemMemorySize = 20
 
 function playersEquips.add(whom, slot, what)
 	if playersEquips[whom] == nil then
@@ -40,7 +37,8 @@ local function GetRelativePos(inst)
 end
 
 local function GetAggro(inst)
-	return inst.replica.combat:GetTarget().userid or ''
+	local t = inst.replica.combat:GetTarget()
+	return t and t.userid or 'none'
 end
 
 local function IsInHeal(inst)
@@ -104,10 +102,13 @@ function Sensors.InitializeScanner(plr)
 						f = ent.Remove
 						flag = true
 					end
-					p = ent:GetNearestPlayer().userid
+					p = ent:GetNearestPlayer()
+					if not p then break end
 					ent.Remove = function(t, ...)
-						if t:GetDistanceSqToInst(t:GetNearestPlayer()) < 1.5 then
-							playersEquips.add(t:GetNearestPlayer().userid, ResolveItemSlot(t), t.prefab)
+						if t:GetNearestPlayer() then
+							if t:GetDistanceSqToInst(t:GetNearestPlayer()) < 1.5 then
+								playersEquips.add(t:GetNearestPlayer().userid, ResolveItemSlot(t), t.prefab)
+							end
 						end
 						ent.marked = nil
 						f(t, ...)
@@ -176,7 +177,7 @@ function Sensors.GetMobsDataTable()
 	local j = 1
 	for i = 1, #ents do
 		ent = ents[i]
-		if j > mobMemorySize then break end
+		if j > MOB_MEMORY_SIZE then break end
 		if seenMobs[ent.prefab] ~= nil then
 			seenMobs[ent.prefab] = seenMobs[ent.prefab] + 1
 		else
@@ -237,7 +238,7 @@ function Sensors.GetTeamDataTable()
 	local players = FindEntities({"player"})
 	local player
 	local equips
-	for i = 2, math.min(#players, playerMemorySize) do
+	for i = 2, math.min(#players, PLAYER_MEMORY_SIZE) do
 		player = players[i]
 		if player.prefab ~= 'spectator' then
 			equips = GetEquips(player.userid, player.prefab:upper())
@@ -249,7 +250,8 @@ function Sensors.GetTeamDataTable()
 				eqbody = equips.body,
 				eqhead = equips.head,
 				userid = player.userid,
-				iscasting = fns.CheckDebugString(player, "zip:staff") -- i don't think it will really be useful, but oh well
+				iscasting = fns.CheckDebugString(player, "zip:staff"), -- i don't think it will really be useful, but oh well
+				guid = player.GUID
 			}
 		end
 	end
@@ -266,7 +268,7 @@ function Sensors.GetItemsDataTable()
 	local ent
 	local j = 1
 	for i = 1, #ents do
-		if i > itemMemorySize then
+		if i > ITEM_MEMORY_SIZE then
 			for k = i, #ents do
 				ent = ents[k]
 				if IsItemValuable(ent.prefab) and not IsItemValuable(itemsData[j].prefab) then
@@ -281,11 +283,14 @@ function Sensors.GetItemsDataTable()
 			break
 		end
 		ent = ents[i]
-		itemsData[j] = {
-			prefab = ent.prefab,
-			rel_pos = GetRelativePos(ent),
-			guid = ent.GUID
-		}
+		if ent:GetPosition() ~= ThePlayer:GetPosition() then
+			itemsData[j] = {
+				prefab = ent.prefab,
+				rel_pos = GetRelativePos(ent),
+				guid = ent.GUID
+			}
+			j = j + 1
+		end
 	end
 	return itemsData
 end
@@ -301,7 +306,7 @@ function Sensors.CollectAndSerializeData(inclplayers, inclmobs, inclitems)
 	if inclmobs then
 		data = data.."\nMobs data:"
 		for k,v in ipairs(Sensors.GetMobsDataTable()) do
-			data = data.."\n  Mob "..k.." | "..v.prefab..(v.epic and " | BOSS:" or ":").."\n    Hit: "..v.hitq.." | Position: "..tostring(v.rel_pos).." | Aggro: "..v.aggro.."\n    CC: "..(v.cc and "true" or "false").." | Guard: "..(v.guard and "true" or "false").." | Inheal: "..(v.inheal and "true" or "false").."\n    Debuffed: "..(v.debuff and "true" or "false").." | Last attack: "..v.last_attack
+			data = data.."\n  Mob "..k.." | "..v.prefab..(v.epic and " | BOSS:" or ":").."\n    Hit: "..(v.hitq and v.hitq or '0').." | Position: "..tostring(v.rel_pos).." | Aggro: "..v.aggro.."\n    CC: "..(v.cc and "true" or "false").." | Guard: "..(v.guard and "true" or "false").." | Inheal: "..(v.inheal and "true" or "false").."\n    Debuffed: "..(v.debuff and "true" or "false").." | Last attack: "..(v.last_attack and v.last_attack or '')
 		end
 	end
 	if inclitems then
