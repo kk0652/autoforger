@@ -4,7 +4,9 @@ local fns = require'autof_functions'
 
 local mobMemorySize = 12
 local sameMobMemoryMax = 8
+local playerMemorySize = 12
 local playersEquips = {}
+local itemMemorySize = 20
 
 function playersEquips.add(whom, slot, what)
 	if playersEquips[whom] == nil then
@@ -29,28 +31,6 @@ end
 local function FindEntities(tags, r)
 	local x, _, z = ThePlayer:GetPosition():Get()
 	return TheSim:FindEntities(x, 0, z, r or 60, tags)
-end
-
-local function UpdateMobs(mobs)
-	local updated = {}
-	local j = 1
-	for i = 1, #mobs do
-		if fns.ISTargetValid(mobs[i]) then
-			updated[j] = mobs[i]
-			j = j + 1
-		end
-	end
-
-	local ents = Sensors.FindEntities({"LA_mob"})
-	for i = 1, #ents do
-		if ents[i].marked == nil then
-			ents[i].marked = true
-			updated[j] = ents[i]
-			j = j + 1
-		end
-	end
-
-	return updated
 end
 
 local function GetRelativePos(inst)
@@ -120,7 +100,7 @@ function Sensors.InitializeScanner(plr)
 			for i = 1, #ents do
 				ent = ents[i]
 				if ent.marked == nil then
-					if not flag then
+					if not flag then -- i don't like this, but at least this works
 						f = ent.Remove
 						flag = true
 					end
@@ -144,6 +124,7 @@ function Sensors.InitializeScanner(plr)
 end
 
 
+
 local function ExtractDataFromMob(ent)
 	return {
 			prefab = ent.prefab,
@@ -160,7 +141,7 @@ local function ExtractDataFromMob(ent)
 			}
 end
 
-local function GetMobsDataTable()
+function Sensors.GetMobsDataTable()
 	--[[
 	Data of one mob is a table of this format:
 	{
@@ -173,7 +154,8 @@ local function GetMobsDataTable()
 	is it in guard,
 	is it debuffed, -- only haunted counts though
 	last time it attacked,
-	is mob EPIC -- это в основном я добавил чтобы использовать в этой функции)
+	is mob EPIC -- это в основном я добавил чтобы использовать в этой функции),
+	GUID -- мне это понадобится, потом...
 	}
 
 	Эта функция сначала ищет mobMemorySize ближайших мобов вокруг (если мобов определенного типа больше sameMobMemoryMax, то начиная с sameMobMemoryMax + 1 они пропускаются),
@@ -203,12 +185,12 @@ local function GetMobsDataTable()
 		if seenMobs[ent.prefab] <= sameMobMemoryMax then
 			mobsData[j] = ExtractDataFromMob(ent)
 			j = j + 1
-			ent.marked = true
+			ent.mark = true
 		end
 	end
 	local epicents = FindEntities({"LA_mob", "epic"}) -- epik! epicckck1!\
 	for i = 1, #epicents do
-		if not epicents[i].marked then
+		if not epicents[i].mark then
 			for k = j, 1, -1 do
 				if not mobsData[k].epic then
 					mobsData[k] = ExtractDataFromMob(epicents[i])
@@ -219,7 +201,7 @@ local function GetMobsDataTable()
 		end
 	end
 	for i = 1, #ents do
-		ents[i].marked = nil
+		ents[i].mark = nil
 	end
 	return mobsData
 end
@@ -235,7 +217,7 @@ local function GetPlayerHealth(player)
 	return player.components.healthsyncer._healthpct:value()
 end
 
-local function GetTeamDataTable()
+function Sensors.GetTeamDataTable()
 	--[[
 	data of one player:
 	{
@@ -255,7 +237,7 @@ local function GetTeamDataTable()
 	local players = FindEntities({"player"})
 	local player
 	local equips
-	for i = 2, #players do
+	for i = 2, math.min(#players, playerMemorySize) do
 		player = players[i]
 		if player.prefab ~= 'spectator' then
 			equips = GetEquips(player.userid, player.prefab:upper())
@@ -274,13 +256,61 @@ local function GetTeamDataTable()
 	return playersData
 end
 
-function Sensors.SerializeData(inclmobs)
-	local data = "\nPlayers data:"
-	local tbl = GetTeamDataTable()
-	for k,v in ipairs(tbl) do
-		data = data.."\nPlayer 1 | "..v.prefab.." | "..v.userid..":\n".."  Health: "..math.ceil(v.health*100).." | Position: "..tostring(v.rel_pos).." | Is casting: "..tostring(v.iscasting ~= nil).."\n  Hand: "..(v.eqhand or "EMPTY").." Body: "..(v.eqbody or "EMPTY").." Head: "..(v.eqhead or "EMPTY")
+local function IsItemValuable(prefab)
+	return prefab:find("staff") or prefab:find("sword") or prefab:find("tome") or prefab:find("lucy")
+end
+
+function Sensors.GetItemsDataTable()
+	local itemsData = {}
+	local ents = FindEntities({'_inventoryitem'})
+	local ent
+	local j = 1
+	for i = 1, #ents do
+		if i > itemMemorySize then
+			for k = i, #ents do
+				ent = ents[k]
+				if IsItemValuable(ent.prefab) and not IsItemValuable(itemsData[j].prefab) then
+					itemsData[j] = {
+						prefab = ent.prefab,
+						rel_pos = GetRelativePos(ent),
+						guid = ent.GUID
+					}
+					j = j - 1
+				end
+			end
+			break
+		end
+		ent = ents[i]
+		itemsData[j] = {
+			prefab = ent.prefab,
+			rel_pos = GetRelativePos(ent),
+			guid = ent.GUID
+		}
 	end
-	return inclmobs and data.."\nMobs data:\n"..SerializeTable(GetMobsDataTable()) or data
+	return itemsData
+end
+
+function Sensors.CollectAndSerializeData(inclplayers, inclmobs, inclitems)
+	local data = ""
+	if inclplayers then
+		data =  data.."\nPlayers data:"
+		for k,v in ipairs(Sensors.GetTeamDataTable()) do
+			data = data.."\n  Player "..k.." | "..v.prefab.." | "..v.userid..":\n".."    Health: "..math.ceil(v.health*100).." | Position: "..tostring(v.rel_pos).." | Is casting: "..tostring(v.iscasting ~= nil).."\n    Hand: "..(v.eqhand or "EMPTY").." Body: "..(v.eqbody or "EMPTY").." Head: "..(v.eqhead or "EMPTY")
+		end
+	end
+	if inclmobs then
+		data = data.."\nMobs data:"
+		for k,v in ipairs(Sensors.GetMobsDataTable()) do
+			data = data.."\n  Mob "..k.." | "..v.prefab..(v.epic and " | BOSS:" or ":").."\n    Hit: "..v.hitq.." | Position: "..tostring(v.rel_pos).." | Aggro: "..v.aggro.."\n    CC: "..(v.cc and "true" or "false").." | Guard: "..(v.guard and "true" or "false").." | Inheal: "..(v.inheal and "true" or "false").."\n    Debuffed: "..(v.debuff and "true" or "false").." | Last attack: "..v.last_attack
+		end
+	end
+	if inclitems then
+		data = data.."\nItems data:"
+		for k,v in ipairs(Sensors.GetItemsDataTable()) do
+			data = data.."\n Item "..k.." | "..v.prefab.." | ".."Position: "..tostring(v.rel_pos)
+		end
+	end
+	return data
 end
 
 return Sensors

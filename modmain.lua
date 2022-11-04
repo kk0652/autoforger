@@ -72,10 +72,11 @@ end
 --local tasks = require('autof_tasks')
 local fns = require('autof_functions')
 local sensors = require('autof_sensors')
+
 local manualControl = true
 
 AddPlayerPostInit(function(plr)
-	plr:DoTaskInTime(.5, function() sensors.InitializeScanner(plr) end)
+	plr:DoTaskInTime(0, function() sensors.InitializeScanner(plr) end)
 	
 	--plr._autofLastResponseTime = 0
 --[[
@@ -143,6 +144,6 @@ end)
 --]]
 TheInput:AddKeyDownHandler(KEY_N, function()
 	if not (fns.IsInGame() or fns.IsHUDScreen()) or not DEBUG then return end
-	print(sensors.SerializeData(true))
+	print(sensors.CollectAndSerializeData(true, true, true))
 end)
 
