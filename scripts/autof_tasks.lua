@@ -1,52 +1,45 @@
+local behaviors = require('autof_behaviors') -- TODO: Needed?
 local fns = require('autof_functions')
+local sensors = require('autof_sensors')
 
 local tasks = {
 	attack = {
 		fn = function(params) -- target, delay, attackrange, position (wtf is position lol)
-			local fns = require'autof_functions'
+			local player = params.plr
+                        local target = params.target
+                        local delay = params.delay * .001
+                        local aktrange = params.attackrange -- player.replica.combat:GetAttackRangeWithWeapon() ???
+                        local weapon = params.weapon -- player.replica.combat:GetWeapon() ???
+                        local range = target:GetPhysicsRadius(0) + atkrange
+                        local dist = params.dist -- player:GetDistanceSqToInst(target) ???
+                        local x, _, z = params.position:Get()
+                        if not (sensors.IsTargetValid(target) or sensors.IsTargetAlive(target)) or range*range < dist then
+                            return false
+                        end
+                        if player.components.playercontroller.locomotor ~= nil then
+                            local act = player.components.playeractionpicker:GetLeftClickActions(target:GetPosition(), target)[1]
+                            if not act then return false end
+                        else
 
-			function Attacker.Attack(target, delay, attackRange, position)
-				local controller = ThePlayer.components.playercontroller
-				local weapon = ThePlayer.replica.combat:GetWeapon()
-				local seconds = delay * .001
-				local range = target:GetPhysicsRadius(0) + attackRange
-				if not fns.IsTargetValid(target) or range * range < ThePlayer:GetDistanceSqToInst(target) then
-					return -1
-				end
-				if controller:CanLocomote() then
-					local act = ThePlayer.components.playeractionpicker:GetLeftClickActions(target:GetPosition(), target)[1]
-					if not act then return -1 end
-					act.preview_cb = function()
-						fns.SendRPC(RPC.LeftClick, ACTIONS.ATTACK.code, position.x, position.z, target, true, nil, nil, ThePlayer.__k)
-					end
-					act.action_key = ThePlayer.__k
-					controller:DoAction(act)
-				else
-					fns.SendRPC(RPC.LeftClick, ACTIONS.ATTACK.code, position.x, position.z, target, true, nil, nil, ThePlayer.__k)
-				end
-				if weapon and (weapon:HasTag("blowdart") or weapon:HasTag("slingshot")) then
-					return seconds - 4 * FRAMES
-				else
-					return seconds
-				end
-			end
+                        end
+                        return true
 		end,
 	},
 	pickup = {
 		fn = function(params)
 			local player = params.plr 
-			local x, y, z = ThePlayer.Transform:GetWorldPosition()
+			local x, y, z = player.Transform:GetWorldPosition()
 			local _inventoryitems = TheSim:FindEntities(x, y, z, params.range or 20, {"_inventoryitem"})
 			for j = 1, #_inventoryitems do
 			    if _inventoryitems[j].prefab == params.item then
 				    local x1, y1, z1 = _inventoryitems[j].Transform:GetWorldPosition()
-					if ThePlayer.components.playercontroller.locomotor ~= nil then
-					    local buffaction = BufferedAction(ThePlayer, _inventoryitems[j], ACTIONS.PICKUP, nil, nil, nil, nil, ThePlayer.__k) -- i store action key in theplayer.__k, just.. just
+					if player.components.playercontroller.locomotor ~= nil then
+					    local buffaction = BufferedAction(player, _inventoryitems[j], ACTIONS.PICKUP, nil, nil, nil, nil, player.__k) -- i store action key in theplayer.__k, just.. just
 						buffaction.preview_cb = function()
-						    fns.SendRPC(RPC.LeftClick, ACTIONS.PICKUP.code, x1, z1, _inventoryitems[j], true, nil, nil, ThePlayer.__k)
+						    fns.SendRPC(RPC.LeftClick, ACTIONS.PICKUP.code, x1, z1, _inventoryitems[j], true, nil, nil, player.__k)
 						end
-						buffaction.action_key = ThePlayer.__k
-						ThePlayer.components.playercontroller:DoAction(buffaction)
+						buffaction.action_key = player.__k
+						player.components.playercontroller:DoAction(buffaction)
 						return
 					else
 					    fns.SendRPC(RPC.LeftClick, ACTIONS.PICKUP.code, x1, z1, _inventoryitems[j], true, nil, nil, ThePlayer.__k)
