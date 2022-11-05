@@ -73,6 +73,7 @@ end
 local fns = require('autof_functions')
 local sensors = require('autof_sensors')
 
+-- this is not tuning, do not touch it, it will break if you do
 MOB_MEMORY_SIZE = 24
 PLAYER_MEMORY_SIZE = 15
 ITEM_MEMORY_SIZE = 24

@@ -21,18 +21,22 @@ function Brain:Initialize(plr)
 
 	}
 	Brain.binaryActionIndices = fns.GenerateBinaryIndexingTableForOptions(Brain.actionlist)
-	-- for encoding mobs (prebfabs) in binary
-	Brain.moblist = {
+	Brain.mobs = {
 		'pig',
 		'croc',
-		'turtle',
+		'tort',
 		'scorp',
-		'makaka',
-		'borov',
+		'rilla',
+		'boarrior',
 		'rhino',
 		'swine',
+		'roach',
+		'mummy',
+		'battlestandard_heal',
+		{'aurastone','battlestandard'},
+		--'unknown'
 	}
-	Brain.binaryMobIndices = fns.GenerateBinaryIndexingTableForOptions(Brain.moblist)
+	Brain.binaryMobIndices = fns.GenerateBinaryIndexingTableForOptions(Brain.mobs)
 end
 
 local function FromLocalToGlobal(index, case) -- return in-game instance from an index for brain table
@@ -69,11 +73,27 @@ local function FromGlobalToLocal(guid, case) --  return index from brain table f
 	end
 end
 
+local function GetNormalizedPosition(pos)
+	return {pos.x / 65, pos.z / 65}
+end
+
+local function GetPrefabsIndex(prefab) -- binary index
+	for i = 1, #Brain.mobs do
+		if prefab:find(Brain.mobs[i]) then
+			return Brain.binaryMobIndices[i]
+		end
+	end
+	return {1,1,1,1} -- IF #Brain.mobs >= 16 THEN THIS MAY CAUSE ISSUES -- bruh there's so much more that can (and will) cause issues, why care?
+end
+
 function Brain:GetNormalizedMobs()
 	local normalized = {}
 	for i = 1, MOB_MEMORY_SIZE do
-
 		if Brain.mobs[i] then
+			normalized[i] = {
+				GetPrefabsIndex(Brain.mobs[i].prefab),
+				GetNormalizedPosition(Brain.mobs[i].rel_pos)
+			}
 
 function Brain:NormalizeAction(params)
 	local normalized = {}
