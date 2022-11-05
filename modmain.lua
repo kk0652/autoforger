@@ -1,6 +1,6 @@
 GLOBAL.setmetatable(env, {__index = function(t, k) return GLOBAL.rawget(GLOBAL, k) end})
 
-local DEBUG = true
+local DEBUG = false
 
 if TheNet:GetServerGameMode() ~= "lavaarena" then return end
 
@@ -81,7 +81,20 @@ GLOBAL.ITEM_MEMORY_SIZE = 24
 
 local manualControl = true
 
+
+
 AddPlayerPostInit(function(plr)
+	AddClassPostConstruct('widgets/itemtile', function(self) -- top 10 anime best practices
+		if self.item:HasTag("rechargeable") then
+			local _SetChargePercent = self.SetChargePercent
+			self.SetChargePercent = function(self, percent)
+				_SetChargePercent(self, percent)
+				if plr.autofBrain then
+					plr.autofBrain.currentWeaponCharge = percent
+				end
+			end
+		end
+	end)
 
 --[[	local _srpc = TheNet.SendRPCToServer
 	getmetatable(TheNet).__index.SendRPCToServer = function(proxy, rpc, code, x, z, t1, t2, t3, t4, t5, ...)
@@ -114,7 +127,8 @@ AddPlayerPostInit(function(plr)
 
 	plr:DoTaskInTime(.6, function()
 		plr.autofBrain = brain
-		sensors.InitializeScanner(plr)
+		plr.autofSensors = sensors
+		plr.autofSensors.InitializeScanner(plr)
 		plr.autofBrain:Initialize(plr)
 	end)
 	
@@ -140,7 +154,7 @@ AddPlayerPostInit(function(plr)
 
 	--brain:Iniialize()
 	--brain:SetBehavior("default")
-    --[[
+	--[[
 	plr:DoPeriodicTask(.5, function()
 		plr.__k = sus() and TheWorld.net.action_key:value() or tostring(suS()) -- honestly im not sure if i need to constantly check it, but i have an impression like i should
 		if plr._autofTaskResult ~- nil and not manualControl then
@@ -172,7 +186,7 @@ AddPlayerPostInit(function(plr)
 
 		end
 	end)
-    ]]
+	]]
 end)
 
 --[[

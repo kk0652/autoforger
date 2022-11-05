@@ -1,6 +1,5 @@
 local Brain = {}
 
-local sensors = require'autof_sensors'
 
 local BINARY_NUMERATION = false
 
@@ -8,11 +7,14 @@ function Brain:Initialize(plr)
 	fns.print("initializing brain")
 	if plr.autof_brainTask == nil then
 		plr.autof_brainTask = plr:DoPeriodicTask(FRAMES * 10, function()
-			Brain.mobs = sensors.GetMobsDataTable()
-			Brain.team = sensors.GetTeamDataTable()
-			Brain.items = sensors.GetItemsDataTable()
+			Brain.mobs = plr.autofSensors.GetMobsDataTable()
+			Brain.team = plr.autofSensors.GetTeamDataTable()
+			Brain.items = plr.autofSensors.GetItemsDataTable()
 		end)
 	end
+
+	self.normalizedSettings = {}
+
 	self.actionlist = {
 		'walk',
 		'attack',
@@ -26,7 +28,7 @@ function Brain:Initialize(plr)
 	self.moblist = {
 		'pig',
 		'croc',
-		'tort',
+		'snort',
 		'scorp',
 		'rilla',
 		'boarrior',
@@ -35,11 +37,12 @@ function Brain:Initialize(plr)
 		'roach',
 		'mummy',
 		'battlestandard_heal',
-		{'aurastone','battlestandard'},
+		'battlestandard',
+		'aurastone',
 		--'unknown'
 	}
 	self.mobsHP = {
-		TUNING.FORGE.PITPIG,
+		TUNING.FORGE.PITPIG.HEALTH,
 		TUNING.FORGE.CROCOMMANDER.HEALTH,
 		TUNING.FORGE.SNORTOISE.HEALTH,
 		TUNING.FORGE.SCORPEON.HEALTH,
@@ -58,7 +61,6 @@ function Brain:Initialize(plr)
 		self.binaryTeamIndices = fns.GenerateBinaryIndexingTableForOptions(16)
 	end
 	self.playerlist = {
-		'spectator',
 		'willow',
 		'wickerbottom',
 		'wes',
@@ -78,7 +80,61 @@ function Brain:Initialize(plr)
 		'woodie',
 		'wortox', -- wortox ftw
 	}
+	self.handitemlist = {
+		'forge_slingshot',
+		'forginghammer',
+		'forgedarts',
+		'petrifyingtome',
+		'teleport_staff',
+		'riledlucy',
+		'lavaarena_seeddarts',
+		'pithpike',
+		'portalstaff',
+		'firebomb',
+		'lavaarena_gauntlet',
+		'lavaarena_spatula',
+		'bacontome',
+		'pocketwatch_reforged',
+		'forge_trident',
+		'moltendarts',
+		'spiralspear',
+		'lavaarena_seeddart2',
+		'blacsmithsedge',
+		'infernalstaff',
+		'spice_bomb',
+		'livingstaff',
+		'' -- hallowed
+	}
+	self.bodyitemlist = {
+		'reedtunic',
+		'forge_woodarmor',
+		'featheredtunic',
+		'silkenarmor',
+		'jaggedarmor',
+		'splintmail',
+		'steadfastarmor',
+		'steadfastgrandarmor',
+		'whisperinggrandarmor',
+		'silkengrandarmor',
+		'jaggedgrandarmor',
+		'' -- hallowed
+	}
+	self.headitemlist = {
+		'lavaarena_chefhat',
+		'crystaltiara',
+		'featheredwreath',
+		'barbedhelm',
+		'noxhelm',
+		'wovengarland',
+		'flowerheadband',
+		'clairvoyantcrown',
+		'resplendentnoxhelm',
+		'blossomedwreath',
+		'' -- hallowed
+	}
 end
+
+
 
 local function FromLocalToGlobal(index, case) -- return in-game instance from an index for brain table
 	fns.print('From local to global call [', index, case, ']')
@@ -115,10 +171,10 @@ local function FromGlobalToLocal(guid, case) --  return index from brain table f
 end
 
 local function GetNormalizedPosition(pos)
-	return {pos.x / 65, pos.z / 65}
+	return {(pos.x + 32.5) / 65, (pos.z + 32.5) / 65}
 end
 
-local function GetResolvedAndNormalizedAggro(userid)
+local function GetResolvedAndNormalizedUserid(userid)
 	for i = 1, #Brain.team do
 		if Brain.team[i].userid == userid then
 			return BINARY_NUMERATION and Brain.binaryTeamIndices[i] or i / 16
@@ -127,31 +183,72 @@ local function GetResolvedAndNormalizedAggro(userid)
 	return BINARY_NUMERATION and Brain.binaryTeamIndices[16] or 1. -- 16 is unknown player / none aggro at all
 end
 
-local function GetPrefabsIndex(prefab) -- binary index
-	for i = 1, #Brain.moblist do
-		if prefab:find(Brain.moblist[i]) then
-			return (BINARY_NUMERATION and Brain.binaryMobIndices[i] or false), i
+local function GetNormalizedPrefab(prefab, case, slot)
+	if case == 1 then -- mob
+		for i = 1, #Brain.moblist do
+			if prefab:find(Brain.moblist[i]) then
+				return (BINARY_NUMERATION and Brain.binaryMobIndices[i] or false), i
+			end
+		end
+		return (BINARY_NUMERATION and {1,1,1,1} or 16), 8 -- IF #Brain.moblist >= 16 THEN THIS MAY CAUSE ISSUES -- bruh there's so much more that can (and will) cause issues, why care?
+	elseif case == 2 then -- player
+		for i = 1, #Brain.playerlist do
+			if prefab == Brain.playerlist[i] then
+				return i / 19
+			end
+		end
+		return 1
+	elseif case == 3 then -- item
+		if slot == 'hand' then
+			for i = 1, #Brain.handitemlist do
+				if prefab == Brain.handitemlist[i] then
+					return i / 32
+				end
+			end
+			return prefab and 1 or 0
+		elseif slot == 'body' then
+			for i = 1, #Brain.bodyitemlist do
+				if prefab == Brain.bodyitemlist[i] then
+					return i / 20
+				end
+			end
+			return prefab and 1 or 0
+		elseif slot == 'head' then
+			for i = 1, #Brain.headitemlist do
+				if prefab == Brain.headitemlist[i] then
+					return i / 20
+				end
+			end
+			return prefab and 1 or 0
 		end
 	end
-	return (BINARY_NUMERATION and {1,1,1,1} or 16) -- IF #Brain.mobs >= 16 THEN THIS MAY CAUSE ISSUES -- bruh there's so much more that can (and will) cause issues, why care?
 end
 
 local blankMobTemplate = {}
 for j = 1, (BINARY_NUMERATION and 16 or 10) do
 	blankMobTemplate[j] = 0
 end
+local blankPlayerTemplate = {}
+for j = 1, 9 do
+	blankPlayerTemplate[j] = 0
+end
+local blankItemTemplate = {}
+for j = 1, 4 do
+	blankItemTemplate[j] = 0
+end
+
 
 function Brain:GetNormalizedMobData()
 	local normalized = {}
 	local t, j
 	for i = 1, MOB_MEMORY_SIZE do
 		if Brain.mobs[i] then
-			t, j = GetPrefabsIndex(Brain.mobs[i].prefab)
+			t, j = GetNormalizedPrefab(Brain.mobs[i].prefab, 1)
 			normalized[i] = {
 				t or j / 16, -- 4 (1)
 				GetNormalizedPosition(Brain.mobs[i].rel_pos), -- 2
 				(Brain.mobs[i].hit_quantity or 0) / Brain.mobsHP[j], -- 1
-				GetResolvedAndNormalizedAggro(Brain.mobs[i].aggro), -- 4 (1)
+				GetResolvedAndNormalizedUserid(Brain.mobs[i].aggro), -- 4 (1)
 				(Brain.mobs[i].cc and 1 or 0), -- 1
 				(Brain.mobs[i].inheal and 1 or 0), -- 1
 				(Brain.mobs[i].guard and 1 or 0), -- 1
@@ -167,25 +264,105 @@ end
 
 function Brain:GetNormalizedTeamData()
 	local normalized = {}
-
 	for i = 1, PLAYER_MEMORY_SIZE do
 		if Brain.team[i] then
-
 			normalized[i] = {
-
+				GetNormalizedPrefab(Brain.team[i].prefab, 2), -- 1
+				GetNormalizedPosition(Brain.team[i].rel_pos), -- 2
+				Brain.team[i].health, -- 1
+				GetNormalizedPrefab(Brain.team[i].eqhand, 3, 'hand'), -- 1
+				GetNormalizedPrefab(Brain.team[i].eqbody, 3, 'body'), -- 1
+				GetNormalizedPrefab(Brain.team[i].eqhead, 3, 'head'), -- 1
+				i / 16, -- 1
+				(Brain.team[i].iscasting and 1 or 0) -- 1
 			}
+		else
+			normalized[i] = blankPlayerTemplate
+		end		
+	end
+	return fns.FlattenSecondAndExtendFirst({}, normalized)
+end
+
+function Brain:GetNormalizedItemData()
+	local normalized = {}
+	local slot
+	for i = 1, ITEM_MEMORY_SIZE do
+		if Brain.items[i] then
+			if Brain.items[i].slot == 'hand' then
+				slot = 0
+			elseif Brain.items[i].slot == 'body' then
+				slot = .5
+			else 
+				slot = 1
+			end
+			normalized[i] = {
+				GetNormalizedPrefab(Brain.items[i].prefab, 3, Brain.items[i].slot), -- 1
+				slot, -- 1
+				GetNormalizedPosition(Brain.items[i].rel_pos), -- 2
+			}
+		else
+			normalized[i] = blankItemTemplate
 		end
 	end
+	return fns.FlattenSecondAndExtendFirst({}, normalized)
+end
+
+function Brain:GetNormalizedArenaEntsData() -- heal circles and fissures
+	local normalized = {}
+	local healz = ThePlayer.autofSensors.GetHealingCircles()
+	local fissures = ThePlayer.autofSensors.GetFissures()
+	for i = 1, 4 do
+		if healz[i] then
+			normalized[i] = {1, GetNormalizedPosition(healz[i])}
+		else
+			normalized[i] = {0, 0, 0}
+		end
+	end
+	for i = 5, 10 do
+		if fissures[i - 4] then
+			normalized[i] = {1, GetNormalizedPosition(fissures[i][1]), fissures[i][2]}
+		else
+			normalized[i] = {0, 0, 0, 0}
+		end
+	end
+	return fns.FlattenSecondAndExtendFirst({}, normalized)
+end
+
+function Brain:GetNormalizedPlayerData()
+	local equips = ThePlayer.replica.inventory:GetEquips()
+	local normalized = {
+		GetNormalizedPrefab(ThePlayer.prefab, 2), -- 1
+		GetNormalizedPosition(ThePlayer.autofSensors.GetRelativePosition(ThePlayer)), -- 2
+		ThePlayer.autofSensors.GetSelfHPPercent(), -- 1
+		GetNormalizedPrefab(equips.hands, 3, 'hand'), -- 1
+		GetNormalizedPrefab(equips.body, 3, 'body'), -- 1
+		GetNormalizedPrefab(equips.head, 3, 'head'), -- 1
+		1,
+		(Brain.currentWeaponCharge or 0)
+	}
+	return fns.FlattenSecondAndExtendFirst({}, normalized)
+
+end
+
+function Brain:GetNormalizedTime()
+	return GetTime() / 7200
+end
+
+function Brain:FetchAllNormalizedData()
+	return fns.FlattenSecondAndExtendFirst({}, {
+		Brain:GetNormalizedTime(),
+		Brain:GetNormalizedPlayerData(),
+		Brain:GetNormalizedMobData(),
+		Brain:GetNormalizedTeamData(),
+		Brain:GetNormalizedItemData(),
+		Brain:GetNormalizedArenaEntsData(),
+	})
 end
 
 function Brain:NormalizeAction(params)
 	local normalized = {}
 	
     
-end
-
-function Brain:NextTask()
-
 end
 
 function Brain:ActionReport(params) -- functions from different module(s) will intercept rpcs and actionbuttons usages and report them to brain, so it would know what exactly you did

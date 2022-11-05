@@ -4,6 +4,8 @@ local fns = require'autof_functions'
 
 local sameMobMemoryMax = 8
 local playersEquips = {}
+local healz = {}
+local fissures = {}
 
 function playersEquips.add(whom, slot, what)
 	if playersEquips[whom] == nil then
@@ -34,6 +36,12 @@ local function GetRelativePos(inst)
 	local center = TheWorld.net.center_pos
 	local x, _, z = inst.Transform:GetWorldPosition()
 	return Vector3(x - center.x, 0, z - center.z)
+end
+
+Sensors.GetRelativePosition = GetRelativePos
+
+function Sensors.GetSelfHPPercent()
+	return ThePlayer.replica and ThePlayer.replica.health and ThePlayer.replica.health:GetPercent() or 0
 end
 
 local function GetAggro(inst)
@@ -86,7 +94,7 @@ function Sensors.InitializeScanner(plr)
 			end
 			ents = FindEntities({"LA_mob"})
 			for i = 1, #ents do
-				if fns.CheckDebugString(ent, "hit Frame: 0") then
+				if fns.CheckDebugString(ent, "hit Frame: 12") then
 					if ent.hitq ~= nil then
 						ent.hitq = ent.hitq + 1
 					else
@@ -113,12 +121,24 @@ function Sensors.InitializeScanner(plr)
 						ent.marked = nil
 						f(t, ...)
 					end
-					if ent:GetDistanceSqToInst(ent:GetNearestPlayer()) < 1.5 and playersEquips[p] and playersEquips[p][ResolveItemSlot(ent)] == ent.prefab then
-						playersEquips[p][ResolveItemSlot(ent)] = nil
+					if ent:GetDistanceSqToInst(ent:GetNearestPlayer()) < 1.5 and playersEquips[p.userid] and playersEquips[p.userid][ResolveItemSlot(ent)] == ent.prefab then
+						playersEquips[p.userid][ResolveItemSlot(ent)] = nil
 					end
 					ent.marked = true
 				end
 			end
+			ents = FindEntities({"healingcircle"}, 25)
+			p = {}
+			for i = 1, #ents do
+				p[i] = ents[i]
+			end
+			healz = p
+			ents = FindEntities({"antlion_sinkhole"}, 30)
+			p = {}
+			for i = 1, #ents do
+				p[i] = ents[i]
+			end
+			fissures = p
 			Sleep(0)
 		end
 	end)
@@ -275,6 +295,7 @@ function Sensors.GetItemsDataTable()
 					itemsData[j] = {
 						prefab = ent.prefab,
 						rel_pos = GetRelativePos(ent),
+						slot = ResolveItemSlot(ent),
 						guid = ent.GUID
 					}
 					j = j - 1
@@ -287,12 +308,32 @@ function Sensors.GetItemsDataTable()
 			itemsData[j] = {
 				prefab = ent.prefab,
 				rel_pos = GetRelativePos(ent),
+				slot = ResolveItemSlot(ent),
 				guid = ent.GUID
 			}
 			j = j + 1
 		end
 	end
 	return itemsData
+end
+
+function Sensors.GetHealingCircles()
+	local hc = {}
+	for i = 1, #healz do
+		hc[i] = GetRelativePos(healz[i])
+	end
+	return hc
+end
+
+function Sensors.GetFissures()
+	local fs = {}
+	for i = 1, #fissures do
+		fs[i] = {
+			GetRelativePos(fissures[i]),
+			(fissures[i].prefab:find("lava") and true or false)
+		}
+	end
+	return fs
 end
 
 function Sensors.CollectAndSerializeData(inclplayers, inclmobs, inclitems)
