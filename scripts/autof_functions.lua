@@ -117,11 +117,11 @@ function fns.IsLobbyScreen()
     return screenName:find('LobbyScreen') ~= nil
 end
 
-function fns.GenerateBinaryIndexingTableForOptions(options)
+function fns.GenerateBinaryIndexingTableForNOptions(n)
     local b = 1
-    while 2^b < #options do b = b + 1 end
+    while 2^b < n do b = b + 1 end
     local output = {}
-    for i = 1, #options do
+    for i = 1, n do
         output[i] = {}
         for j = 0, b-1 do
             output[i][j] = math.floor((i-1) / 2^j) % 2
@@ -146,5 +146,13 @@ function fns.FlattenSecondAndExtendFirst(first, second, k)
     end
     return first, k
 end
+
+--[[
+local a = {{1,2,3,{4,5,{6,7}}}, {{8,{9,{10,{11,12},13}},14}, {15,16,{17}}}}
+
+for _,v in ipairs(FlattenSecondAndExtendFirst({},a)) do -- for some it feels satisfying for me to see complex nested tables being flattened and printed out
+    print(v)
+end
+--]]
 
 return fns

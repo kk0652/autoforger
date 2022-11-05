@@ -68,15 +68,15 @@ local function suS()
 	z / x / e 
 end 
 
---local brain = require('autof_brain')
+local brain = require('autof_brain')
 --local tasks = require('autof_tasks')
-local fns = require('autof_functions')
+GLOBAL.fns = require('autof_functions')
 local sensors = require('autof_sensors')
 
 -- this is not tuning, do not touch it, it will break if you do
-MOB_MEMORY_SIZE = 24
-PLAYER_MEMORY_SIZE = 15
-ITEM_MEMORY_SIZE = 24
+GLOBAL.MOB_MEMORY_SIZE = 24
+GLOBAL.PLAYER_MEMORY_SIZE = 14
+GLOBAL.ITEM_MEMORY_SIZE = 24
 
 
 local manualControl = true
@@ -112,9 +112,10 @@ AddPlayerPostInit(function(plr)
 
 	end--]]
 
-	plr:ListenForEvent("playeractivated", function()
+	plr:DoTaskInTime(.6, function()
+		plr.autofBrain = brain
 		sensors.InitializeScanner(plr)
-		--brain:Initialize(plr)
+		plr.autofBrain:Initialize(plr)
 	end)
 	
 	--plr._autofLastResponseTime = 0
@@ -183,6 +184,9 @@ end)
 --]]
 TheInput:AddKeyDownHandler(KEY_N, function()
 	if not (fns.IsInGame() or fns.IsHUDScreen()) or not DEBUG then return end
-	print(sensors.CollectAndSerializeData(true, true, true))
+	print(sensors.CollectAndSerializeData(false, true, false))
 end)
-
+TheInput:AddKeyDownHandler(KEY_M, function()
+	if not (fns.IsInGame() or fns.IsHUDScreen()) or not DEBUG then return end
+	print(SerializeTable(ThePlayer.autofBrain:GetNormalizedMobData()))
+end)

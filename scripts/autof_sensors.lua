@@ -86,7 +86,7 @@ function Sensors.InitializeScanner(plr)
 			end
 			ents = FindEntities({"LA_mob"})
 			for i = 1, #ents do
-				if fns.CheckDebugString(ent, "hit") then
+				if fns.CheckDebugString(ent, "hit Frame: 0") then
 					if ent.hitq ~= nil then
 						ent.hitq = ent.hitq + 1
 					else

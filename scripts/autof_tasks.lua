@@ -1,4 +1,4 @@
-local behaviors = require('autof_behaviors') -- TODO: Needed?
+local behaviors = require('autof_behaviors') -- TODO: Needed? | i think no
 local fns = require('autof_functions')
 local sensors = require('autof_sensors')
 

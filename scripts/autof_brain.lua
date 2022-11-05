@@ -2,15 +2,18 @@ local Brain = {}
 
 local sensors = require'autof_sensors'
 
+local BINARY_NUMERATION = false
+
 function Brain:Initialize(plr)
-	if plr.brainTask == nil then
-		plr.brainTask = plr:DoPeriodicTask(FRAMES * 10, function()
+	fns.print("initializing brain")
+	if plr.autof_brainTask == nil then
+		plr.autof_brainTask = plr:DoPeriodicTask(FRAMES * 10, function()
 			Brain.mobs = sensors.GetMobsDataTable()
 			Brain.team = sensors.GetTeamDataTable()
 			Brain.items = sensors.GetItemsDataTable()
 		end)
 	end
-	Brain.actionlist = {
+	self.actionlist = {
 		'walk',
 		'attack',
 		'pickup',
@@ -20,8 +23,7 @@ function Brain:Initialize(plr)
 		'idle',
 
 	}
-	Brain.binaryActionIndices = fns.GenerateBinaryIndexingTableForOptions(Brain.actionlist)
-	Brain.mobs = {
+	self.moblist = {
 		'pig',
 		'croc',
 		'tort',
@@ -36,7 +38,46 @@ function Brain:Initialize(plr)
 		{'aurastone','battlestandard'},
 		--'unknown'
 	}
-	Brain.binaryMobIndices = fns.GenerateBinaryIndexingTableForOptions(Brain.mobs)
+	self.mobsHP = {
+		TUNING.FORGE.PITPIG,
+		TUNING.FORGE.CROCOMMANDER.HEALTH,
+		TUNING.FORGE.SNORTOISE.HEALTH,
+		TUNING.FORGE.SCORPEON.HEALTH,
+		TUNING.FORGE.BOARILLA.HEALTH,
+		TUNING.FORGE.BOARRIOR.HEALTH,
+		TUNING.FORGE.RHINOCEBRO.HEALTH,
+		TUNING.FORGE.SWINECLOPS.HEALTH,
+		340,
+		340,
+		TUNING.FORGE.BATTLESTANDARD.HEALTH,
+		TUNING.FORGE.BATTLESTANDARD.HEALTH
+	}
+	if BINARY_NUMERATION == true then
+		self.binaryActionIndices = fns.GenerateBinaryIndexingTableForOptions(#self.actionlist)
+		self.binaryMobIndices = fns.GenerateBinaryIndexingTableForOptions(#self.mobs)
+		self.binaryTeamIndices = fns.GenerateBinaryIndexingTableForOptions(16)
+	end
+	self.playerlist = {
+		'spectator',
+		'willow',
+		'wickerbottom',
+		'wes',
+		'waxwell',
+		'wathgrithr',
+		'webber',
+		'wendy', -- wendy
+		'wormwood',
+		'wanda',
+		'walter',
+		'wurt',
+		'wilson',
+		'warly',
+		'wolfgang',
+		'wx78',
+		'winona',
+		'woodie',
+		'wortox', -- wortox ftw
+	}
 end
 
 local function FromLocalToGlobal(index, case) -- return in-game instance from an index for brain table
@@ -77,23 +118,65 @@ local function GetNormalizedPosition(pos)
 	return {pos.x / 65, pos.z / 65}
 end
 
-local function GetPrefabsIndex(prefab) -- binary index
-	for i = 1, #Brain.mobs do
-		if prefab:find(Brain.mobs[i]) then
-			return Brain.binaryMobIndices[i]
+local function GetResolvedAndNormalizedAggro(userid)
+	for i = 1, #Brain.team do
+		if Brain.team[i].userid == userid then
+			return BINARY_NUMERATION and Brain.binaryTeamIndices[i] or i / 16
 		end
 	end
-	return {1,1,1,1} -- IF #Brain.mobs >= 16 THEN THIS MAY CAUSE ISSUES -- bruh there's so much more that can (and will) cause issues, why care?
+	return BINARY_NUMERATION and Brain.binaryTeamIndices[16] or 1. -- 16 is unknown player / none aggro at all
 end
 
-function Brain:GetNormalizedMobs()
+local function GetPrefabsIndex(prefab) -- binary index
+	for i = 1, #Brain.moblist do
+		if prefab:find(Brain.moblist[i]) then
+			return (BINARY_NUMERATION and Brain.binaryMobIndices[i] or false), i
+		end
+	end
+	return (BINARY_NUMERATION and {1,1,1,1} or 16) -- IF #Brain.mobs >= 16 THEN THIS MAY CAUSE ISSUES -- bruh there's so much more that can (and will) cause issues, why care?
+end
+
+local blankMobTemplate = {}
+for j = 1, (BINARY_NUMERATION and 16 or 10) do
+	blankMobTemplate[j] = 0
+end
+
+function Brain:GetNormalizedMobData()
 	local normalized = {}
+	local t, j
 	for i = 1, MOB_MEMORY_SIZE do
 		if Brain.mobs[i] then
+			t, j = GetPrefabsIndex(Brain.mobs[i].prefab)
 			normalized[i] = {
-				GetPrefabsIndex(Brain.mobs[i].prefab),
-				GetNormalizedPosition(Brain.mobs[i].rel_pos)
+				t or j / 16, -- 4 (1)
+				GetNormalizedPosition(Brain.mobs[i].rel_pos), -- 2
+				(Brain.mobs[i].hit_quantity or 0) / Brain.mobsHP[j], -- 1
+				GetResolvedAndNormalizedAggro(Brain.mobs[i].aggro), -- 4 (1)
+				(Brain.mobs[i].cc and 1 or 0), -- 1
+				(Brain.mobs[i].inheal and 1 or 0), -- 1
+				(Brain.mobs[i].guard and 1 or 0), -- 1
+				(Brain.mobs[i].debuff and 1 or 0), -- 1
+				(Brain.mobs[i].attack_time % 300) / 300, -- 1
 			}
+		else
+			normalized[i] = blankMobTemplate
+		end
+	end
+	return fns.FlattenSecondAndExtendFirst({}, normalized) 
+end
+
+function Brain:GetNormalizedTeamData()
+	local normalized = {}
+
+	for i = 1, PLAYER_MEMORY_SIZE do
+		if Brain.team[i] then
+
+			normalized[i] = {
+
+			}
+		end
+	end
+end
 
 function Brain:NormalizeAction(params)
 	local normalized = {}
@@ -109,3 +192,5 @@ function Brain:ActionReport(params) -- functions from different module(s) will i
 	Brain.manual_action = params.action
 
 end
+
+return Brain
