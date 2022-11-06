@@ -85,10 +85,11 @@ GLOBAL.ITEM_MEMORY_SIZE = 24
 
 local manualControl = true
 
-
+local BIG_DATA = {}
+local count = 1
 
 AddPlayerPostInit(function(plr)
-	
+
 	AddClassPostConstruct('widgets/itemtile', function(self) -- top 10 anime best practices
 		if self.item:HasTag("rechargeable") then
 			local _SetChargePercent = self.SetChargePercent
@@ -101,97 +102,139 @@ AddPlayerPostInit(function(plr)
 		end
 	end)
 
---[[	local _srpc = TheNet.SendRPCToServer
-	getmetatable(TheNet).__index.SendRPCToServer = function(proxy, rpc, code, x, z, t1, t2, t3, t4, t5, ...)
-		local vecx, _, vecz = plr:GetPosition():Get()
-		local direction, target
-		if code == ACTIONS.WALKTO.code then
-			vecx = x - vecx
-			vecz = z - vecz
-			direction = Vector3(vecx / math.max(vecx, vecz), 0, vecz / math.max(vecx, vecz))
-		elseif rpc == RPC.DirectWalking then
-			direction = Vector3(x, 0, z)
-		elseif rpc == RPC.DragWaling then
-			vecx = x - vecx
-			vecz = z - vecz
-			direction = Vector3(vecx / math.max(vecx, vecz), 0, vecz / math.max(vecx, vecz))
-		elseif rpc == RPC.PredictWalking then
-			vecx = x - vecx
-			vecz = z - vecz
-			direction = Vector3(vecx / math.max(vecx, vecz), 0, vecz / math.max(vecx, vecz))
-		elseif rpc == RPC.AttackButton then
-			target = code
-			-- я хочу понимать какое действие совершал игрок последнюю долю секунды, но что-то както сложно находить это(
-		elseif ...
-		end
-		if direction then
-			brain.lastAction:ReportAction({action = 'walk', direction = direction})
-		end
 
-	end--]]
+	-- [[
+	local prevTarget
+	local isAttacking_button, isAttacking_click, likelyacheat -- ඞඞඞ
+	local isCasting
+	local position
+	local droppedItem, pickedItem
+	local lastAttackTime = - 2
+	local guid
+	local revivedCorpse
+	local startRevive = -5
+	local _srpc = TheNet.SendRPCToServer
+	getmetatable(TheNet).__index.SendRPCToServer = function(proxy, rpc, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10) -- so many 
+	--[[
+	_oldSendRPC = SendRPCToServer 
+	SendRPCToServer = function(a,b,c,d,e,f,g,h,i,j,k) 
+		print(a,(b or 'nil'),(c or 'nil'),(d or 'nil'),(e or 'nil'),(f or 'nil'),(g or 'nil'),(h or 'nil'),(i or 'nil'),(j or 'nil'),(k or 'nil')) 
+		_oldSendRPC(a,b,c,d,e,f,g,h,i,j,k)  
+	end
+
+	RPCs 											ACTIONS
+	29  - left click,								40    - cast aoe
+	52  - stop walking (direct walking)				230   - walkto
+	50  - stop control 								15    - attack
+	1   - action button 							171   - revive
+	37, 36 - lag comp on/off
+	--]]
+
+		if (rpc == RPC.ActionButton or rpc == RPC.LeftClick) and arg1 == ACTIONS.REVIVE_CORPSE.code then
+			revivedCorpse = true
+			guid = (rpc ~= RPC.ActionButton and arg4.GUID or arg2.GUID)
+			startRevive = GetTime()
+		
+		else
+
+			if revivedCorpse and (rpc ~= RPC.StopAllControls and rpc ~= RPC.StopControl and rpc ~= RPC.StopWalking and rpc ~= RPC.MovementPredictionDisabled and rpc ~= RPC.MovementPredictionEnabled) then --  not sure if that's all
+				revivedCorpse = false
+				guid = false 
+			end
+
+			if (rpc == RPC.ActionButton or rpc == RPC.LeftClick) and arg1 == ACTIONS.PICKUP.code then
+				pickedItem = true
+				guid = (rpc ~= RPC.ActionButton and arg4.GUID or arg2.GUID)
+
+			elseif rpc == RPC.LeftClick and arg1 == ACTIONS.CASTAOE.code then
+				isCasting = true
+				position = Vector3(arg2, 0, arg3)
+
+			elseif rpc == RPC.UseItemFromInvTile and arg1 == ACTIONS.UNEQUIP.code or rpc == RPC.DropItemFromInvTile then
+				droppedItem = true
+				guid = (rpc ~= RPC.DropItemFromInvTile and arg2.GUID or arg1.GUID) 
+
+			elseif rpc == RPC.LeftClick and arg1 == ACTIONS.ATTACK.code then
+				isAttacking_click = true
+				prevTarget = arg4
+				if arg8 then likelyacheat = true end -- ඞඞඞ
+
+
+			elseif rpc == RPC.AttackButton then
+				isAttacking_button = true
+				if arg1 then
+					prevTarget = arg1
+				end
+
+			elseif rpc == RPC.StopControl and arg1 == CONTROL_PRIMARY then
+				isAttacking_click = false
+
+			elseif rpc == RPC.StopControl and arg1 == ACTIONS.ABANDON_QUEST.code then
+				prevTargetAttackTime = GetTime()
+				isAttacking_button = false
+
+			end
+
+		end
+		_srpc(proxy, rpc, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10) -- the last one might be excessive
+	end
+	--]]
 
 	plr:DoTaskInTime(.6, function()
 		plr.autofBrain = brain
 		plr.autofSensors = sensors
 		plr.autofSensors.InitializeScanner(plr)
 		plr.autofBrain:Initialize(plr)
-	end)
-	
-	--plr._autofLastResponseTime = 0
---[[
-	function plr:DoAutofTask(params)
-		if plr._autofCurrentTask ~= nil then
-			fns.print("Trying to run a task while one is already active")
-			return
-		end
-		if tasks[params.name] == nil then
-			fns.print('Trying to run a task that does not exist (wrong task name)')
-			return
-		end
-		local task = tasks[params.name]
-		plr._autofTaskResult = nil
-		plr._autofCurrentTaskName = params.name
-		plr._autofCurrentTask = plr:StartThread(function()
-			fns.print('Starting a task "'..params.name..'" with params:\n', SerializeTable(params))
-			task(params)
-		end)
-	end--]]
 
-	--brain:Iniialize()
-	--brain:SetBehavior("default")
-	--[[
-	plr:DoPeriodicTask(.5, function()
-		plr.__k = sus() and TheWorld.net.action_key:value() or tostring(suS()) -- honestly im not sure if i need to constantly check it, but i have an impression like i should
-		if plr._autofTaskResult ~- nil and not manualControl then
+		plr.autofActionWatcher = plr:DoPeriodicTask(.5, function()
+			local posDelta, x, z
+			local pos = plr:GetPosition()
+			if plr.autofBrain.previousPosition then
+				x = pos.x - plr.autofBrain.previousPosition.x
+				z = pos.z - plr.autofBrain.previousPosition.z
+				posDelta = {x = x, z = z}				
+				local action
+				if revivedCorpse and guid then
+					action = {name = 'revive', params = guid}
+				elseif pickedItem and guid then
+					action = {name = 'pickup', params = guid}
+				elseif isCasting and position then
+					action = {name = 'castaoe', params = position}
+				elseif droppedItem and guid then
+					action = {name = 'drop', params = guid}
+				elseif (isAttacking_click or isAttacking_button) and prevTarget then
+					action = {name = 'attack', params = prevTarget.GUID}
+				elseif math.abs(z) + math.abs(x) > 1.2 then
+					action = {name = 'walk', params = posDelta}
+				else
+					action = {name = 'idle'} -- supah idol
+				end
 
-			fns.print('A task "'..plr._autofCurrentTaskName..'" finished with result', plr._autofTaskResult)
-			DoSomething(plr._autofCurrentTaskName, plr._autofTaskResult) -- idk what to do with the results yet
+				if likelyacheat then isAttacking_click = false end
+				if Profile:GetMovementPredictionEnabled() then isAttacking_button = false end
 
-			local newTask = brain:NextTask()
-			plr:DoAutofTask(newTask)
+				isCasting = false
+				droppedItem = false
+				pickedItem = false
 
-		elseif GetTime() - plr._autofLastResponseTime > .6 and not manualControl then -- tasks that do not respond get rekt
+				if revivedCorpse and GetTime() - startRevive > (ThePlayer.prefab ~= 'wilson' and 6 or 3) then
+					revivedCorpse = false
+					guid = false
+				end
 
-			plr._autofCurrentTask:SetList(nil)
-			plr._autofCurrentTask = nil
+				local data = plr.autofBrain:LabelDataAndWaitForNext(action)
 
-			if plr._autofCurrentTaskName == brain.consecutiveFailedTasks.name then
-				brain.consecutiveFailedTasks.n = brain.consecutiveFailedTasks.n + 1
-			else
-				brain.consecutiveFailedTasks.name = plr._autofCurrentTaskName
-				brain.consecutiveFailedTasks.n = 1
+				if DEBUG then fns.print(SerializeTable(data.label)) end
+
+				--BIG_DATA[count] = data
+				--count = count + 1
 			end
+			plr.autofBrain.previousPosition = pos
 
-			local newTask = brain:NextTask()
-			plr:DoAutofTask(newTask)
 
-		elseif manualControl then
-
-			
-
-		end
+		end)
 	end)
-	]]
+
 end)
 
 --[[
@@ -203,7 +246,7 @@ end)
 --]]
 TheInput:AddKeyDownHandler(KEY_N, function()
 	if not (fns.IsInGame() or fns.IsHUDScreen()) or not DEBUG or not IsCtrlPressed() then return end
-	print(sensors.CollectAndSerializeData(false, true, false))
+	print(sensors.CollectAndSerializeData(true, true, true))
 end)
 TheInput:AddKeyDownHandler(KEY_M, function()
 	if not (fns.IsInGame() or fns.IsHUDScreen()) or not DEBUG or not IsCtrlPressed() then return end

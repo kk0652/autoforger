@@ -237,6 +237,21 @@ for j = 1, 4 do
 	blankItemTemplate[j] = 0
 end
 
+local function NormalzeDirection(direction)
+	local l = math.sqrt(direction.x ^ 2 + direction.z ^ 2)
+	return {(direction.x / l + 1) / 2 , (direction.z / l + 1) / 2}
+end
+
+local function ResolveSlotInNumbers(slot)
+	if slot == 'hand' then
+		return 1
+	elseif slot == 'body' then
+		return 2
+	elseif slot == 'head' then
+		return 3
+	end
+	fns.print('Resolve slot in number gone wrong! slot:', slot)
+end
 
 function Brain:GetNormalizedMobData()
 	local normalized = {}
@@ -360,58 +375,58 @@ function Brain:FetchAllNormalizedData()
 	})
 end
 
-function Brain:GetNormalizedActions()
+function Brain:GetNormalizedAction(action)
 	local normalized = {}
 	local j = 1
-	if Brain.currentAction.name == 'idle' then
+	if action.name == 'idle' then
 		normalized[j] = 1
 	else
 		normalized[j] = 0
 	end
 	j = j + 1
-	if Brain.currentAction.name == 'walk' then
+	if action.name == 'walk' then
 		normalized[j] = 1
-		normalized[j + 1] = GetNormalizedPosition(Brain.currentAction.params)
+		normalized[j + 1] = NormalzeDirection(action.params)
 	else
 		normalized[j] = 0
 		normalized[j + 1] = {0, 0}
 	end
 	j = j + 2
-	if Brain.currentAction.name == 'attack' then
+	if action.name == 'attack' then
 		normalized[j] = 1
-		normalized[j + 1] = Brain.currentAction.params / MOB_MEMORY_SIZE
+		normalized[j + 1] = FromGlobalToLocal(action.params, 2) / MOB_MEMORY_SIZE
 	else
 		normalized[j] = 0
 		normalized[j + 1] = 0
 	end
 	j = j + 2
-	if Brain.currentAction.name == 'pickup' then
+	if action.name == 'pickup' then
 		normalized[j] = 1
-		normalized[j + 1] = Brain.currentAction.params / ITEM_MEMORY_SIZE
+		normalized[j + 1] = FromGlobalToLocal(action.params, 3) / ITEM_MEMORY_SIZE
 	else
 		normalized[j] = 0
 		normalized[j + 1] = 0
 	end
 	j = j + 2
-	if Brain.currentAction.name == 'drop' then
+	if action.name == 'drop' then
 		normalized[j] = 1
-		normalized[j + 1] = (Brain.currentAction.params - 1) * .5
+		normalized[j + 1] = (ResolveSlotInNumbers(action.params) - 1) * .5
 	else
 		normalized[j] = 0
 		normalized[j + 1] = 0
 	end
 	j = j + 2
-	if Brain.currentAction.name == 'castaoe' then
+	if action.name == 'castaoe' then
 		normalized[j] = 1
-		normalized[j + 1] = GetNormalizedPosition(Brain.currentAction.params)
+		normalized[j + 1] = GetNormalizedPosition(action.params)
 	else
 		normalized[j] = 0
 		normalized[j + 1] = {0, 0}
 	end
 	j = j + 2
-	if Brain.currentAction.name == 'revive' then
+	if action.name == 'revive' then
 		normalized[j] = 1
-		normalized[j + 1] = Brain.currentAction.params / PLAYER_MEMORY_SIZE
+		normalized[j + 1] = FromGlobalToLocal(action.params, 1) / PLAYER_MEMORY_SIZE
 	else
 		normalized[j] = 0
 		normalized[j + 1] = 0
@@ -419,9 +434,13 @@ function Brain:GetNormalizedActions()
 	return fns.FlattenSecondAndExtendFirst({}, normalized)
 end
 
-function Brain:ActionReport(params) -- functions from different module(s) will intercept rpcs and actionbuttons usages and report them to brain, so it would know what exactly you did
-	Brain.manual_action = params.action
-
+function Brain:LabelDataAndWaitForNext(normalized_actions)
+	local labelled = {}
+	if Brain.fetchedData then
+		labelled = {label = GetNormalizedAction(normalized_actions), data = Brain.fetchedData}
+	end
+	Brain.fetchedData = Brain:FetchAllNormalizedData()
+	return labelled
 end
 
 return Brain

@@ -38,7 +38,7 @@ local function GetRelativePos(inst)
 	return Vector3(x - center.x, 0, z - center.z)
 end
 
-Sensors.GetRelativePosition = GetRelativePos
+Sensors.GetRelativePosition = GetRelativePos -- why? no apparent reason
 
 function Sensors.GetSelfHPPercent()
 	return ThePlayer.replica and ThePlayer.replica.health and ThePlayer.replica.health:GetPercent() or 0
@@ -94,7 +94,7 @@ function Sensors.InitializeScanner(plr)
 			end
 			ents = FindEntities({"LA_mob"})
 			for i = 1, #ents do
-				if fns.CheckDebugString(ent, "hit Frame: 12") then
+				if fns.CheckDebugString(ent, "hit Frame:") then
 					if ent.hitq ~= nil then
 						ent.hitq = ent.hitq + 1
 					else
@@ -288,7 +288,7 @@ function Sensors.GetItemsDataTable()
 	local ent
 	local j = 1
 	for i = 1, #ents do
-		if i > ITEM_MEMORY_SIZE then
+		if j > ITEM_MEMORY_SIZE then
 			for k = i, #ents do
 				ent = ents[k]
 				if IsItemValuable(ent.prefab) and not IsItemValuable(itemsData[j - 1].prefab) then
@@ -347,7 +347,7 @@ function Sensors.CollectAndSerializeData(inclplayers, inclmobs, inclitems)
 	if inclmobs then
 		data = data.."\nMobs data:"
 		for k,v in ipairs(Sensors.GetMobsDataTable()) do
-			data = data.."\n  Mob "..k.." | "..v.prefab..(v.epic and " | BOSS:" or ":").."\n    Hit: "..(v.hitq and v.hitq or '0').." | Position: "..tostring(v.rel_pos).." | Aggro: "..v.aggro.."\n    CC: "..(v.cc and "true" or "false").." | Guard: "..(v.guard and "true" or "false").." | Inheal: "..(v.inheal and "true" or "false").."\n    Debuffed: "..(v.debuff and "true" or "false").." | Last attack: "..(v.last_attack and v.last_attack or '')
+			data = data.."\n  Mob "..k.." | "..v.prefab..(v.epic and " | BOSS:" or ":").."\n    Hit: "..(v.hit_quantity or '0').." | Position: "..tostring(v.rel_pos).." | Aggro: "..v.aggro.."\n    CC: "..(v.cc and "true" or "false").." | Guard: "..(v.guard and "true" or "false").." | Inheal: "..(v.inheal and "true" or "false").."\n    Debuffed: "..(v.debuff and "true" or "false").." | Last attack: "..(v.attack_time or '')
 		end
 	end
 	if inclitems then
