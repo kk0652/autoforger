@@ -16,13 +16,13 @@ function Brain:Initialize(plr)
 	self.normalizedSettings = {}
 
 	self.actionlist = {
+		'idle',
 		'walk',
 		'attack',
 		'pickup',
 		'drop',
 		'castaoe',
 		'revive',
-		'idle',
 
 	}
 	self.moblist = {
@@ -331,14 +331,15 @@ end
 function Brain:GetNormalizedPlayerData()
 	local equips = ThePlayer.replica.inventory:GetEquips()
 	local normalized = {
-		GetNormalizedPrefab(ThePlayer.prefab, 2), -- 1
+		GetNormalizedPrefab(ThePlayer.prefab, 2),									  -- 1
 		GetNormalizedPosition(ThePlayer.autofSensors.GetRelativePosition(ThePlayer)), -- 2
-		ThePlayer.autofSensors.GetSelfHPPercent(), -- 1
-		GetNormalizedPrefab(equips.hands, 3, 'hand'), -- 1
-		GetNormalizedPrefab(equips.body, 3, 'body'), -- 1
-		GetNormalizedPrefab(equips.head, 3, 'head'), -- 1
-		1,
-		(Brain.currentWeaponCharge or 0)
+		ThePlayer.autofSensors.GetSelfHPPercent(), 									  -- 1
+		GetNormalizedPrefab(equips.hands, 3, 'hand'),								  -- 1
+		GetNormalizedPrefab(equips.body, 3, 'body'), 								  -- 1
+		GetNormalizedPrefab(equips.head, 3, 'head'), 								  -- 1
+		1, 																			  -- 1!
+		(Brain.currentWeaponCharge or 0), 											  -- 1
+		ThePlayer.replica.combat:GetAttackRangeWithWeapon() / 10 					  -- 1
 	}
 	return fns.FlattenSecondAndExtendFirst({}, normalized)
 
@@ -359,10 +360,63 @@ function Brain:FetchAllNormalizedData()
 	})
 end
 
-function Brain:NormalizeAction(params)
+function Brain:GetNormalizedActions()
 	local normalized = {}
-	
-    
+	local j = 1
+	if Brain.currentAction.name == 'idle' then
+		normalized[j] = 1
+	else
+		normalized[j] = 0
+	end
+	j = j + 1
+	if Brain.currentAction.name == 'walk' then
+		normalized[j] = 1
+		normalized[j + 1] = GetNormalizedPosition(Brain.currentAction.params)
+	else
+		normalized[j] = 0
+		normalized[j + 1] = {0, 0}
+	end
+	j = j + 2
+	if Brain.currentAction.name == 'attack' then
+		normalized[j] = 1
+		normalized[j + 1] = Brain.currentAction.params / MOB_MEMORY_SIZE
+	else
+		normalized[j] = 0
+		normalized[j + 1] = 0
+	end
+	j = j + 2
+	if Brain.currentAction.name == 'pickup' then
+		normalized[j] = 1
+		normalized[j + 1] = Brain.currentAction.params / ITEM_MEMORY_SIZE
+	else
+		normalized[j] = 0
+		normalized[j + 1] = 0
+	end
+	j = j + 2
+	if Brain.currentAction.name == 'drop' then
+		normalized[j] = 1
+		normalized[j + 1] = (Brain.currentAction.params - 1) * .5
+	else
+		normalized[j] = 0
+		normalized[j + 1] = 0
+	end
+	j = j + 2
+	if Brain.currentAction.name == 'castaoe' then
+		normalized[j] = 1
+		normalized[j + 1] = GetNormalizedPosition(Brain.currentAction.params)
+	else
+		normalized[j] = 0
+		normalized[j + 1] = {0, 0}
+	end
+	j = j + 2
+	if Brain.currentAction.name == 'revive' then
+		normalized[j] = 1
+		normalized[j + 1] = Brain.currentAction.params / PLAYER_MEMORY_SIZE
+	else
+		normalized[j] = 0
+		normalized[j + 1] = 0
+	end
+	return fns.FlattenSecondAndExtendFirst({}, normalized)
 end
 
 function Brain:ActionReport(params) -- functions from different module(s) will intercept rpcs and actionbuttons usages and report them to brain, so it would know what exactly you did

@@ -1,8 +1,12 @@
 GLOBAL.setmetatable(env, {__index = function(t, k) return GLOBAL.rawget(GLOBAL, k) end})
 
-local DEBUG = false
+local DEBUG = true
 
 if TheNet:GetServerGameMode() ~= "lavaarena" then return end
+
+local function IsCtrlPressed()
+	return GLOBAL.TheInput:IsKeyDown(GLOBAL.KEY_CTRL) or GLOBAL.TheInput:IsControlPressed(GLOBAL.CONTROL_MENU_MISC_3)
+end
 
 -- don't copy and use sus things anywhere else please
 
@@ -84,6 +88,7 @@ local manualControl = true
 
 
 AddPlayerPostInit(function(plr)
+	
 	AddClassPostConstruct('widgets/itemtile', function(self) -- top 10 anime best practices
 		if self.item:HasTag("rechargeable") then
 			local _SetChargePercent = self.SetChargePercent
@@ -197,10 +202,10 @@ TheInput:AddKeyDownHandler(KEY_PLUS, function()
 end)
 --]]
 TheInput:AddKeyDownHandler(KEY_N, function()
-	if not (fns.IsInGame() or fns.IsHUDScreen()) or not DEBUG then return end
+	if not (fns.IsInGame() or fns.IsHUDScreen()) or not DEBUG or not IsCtrlPressed() then return end
 	print(sensors.CollectAndSerializeData(false, true, false))
 end)
 TheInput:AddKeyDownHandler(KEY_M, function()
-	if not (fns.IsInGame() or fns.IsHUDScreen()) or not DEBUG then return end
+	if not (fns.IsInGame() or fns.IsHUDScreen()) or not DEBUG or not IsCtrlPressed() then return end
 	print(SerializeTable(ThePlayer.autofBrain:GetNormalizedMobData()))
 end)

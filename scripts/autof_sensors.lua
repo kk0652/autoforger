@@ -291,8 +291,8 @@ function Sensors.GetItemsDataTable()
 		if i > ITEM_MEMORY_SIZE then
 			for k = i, #ents do
 				ent = ents[k]
-				if IsItemValuable(ent.prefab) and not IsItemValuable(itemsData[j].prefab) then
-					itemsData[j] = {
+				if IsItemValuable(ent.prefab) and not IsItemValuable(itemsData[j - 1].prefab) then
+					itemsData[j - 1] = {
 						prefab = ent.prefab,
 						rel_pos = GetRelativePos(ent),
 						slot = ResolveItemSlot(ent),
