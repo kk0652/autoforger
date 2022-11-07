@@ -74,43 +74,33 @@ function log(vector)
 	return v
 end
 
-function matrices_multiplication(matrix_a, matrix_b)
-	local v = {}
-	for i = 1, #matrix_b do
-		local b = {}
-		for j = 1, #matrix_a do
-			b[i] = vector_multiplication(matrix_a[j], matrix_b[i])
+local function matrixout(m)
+	for k,v in pairs(m) do
+		local s = ""
+		for l,b in pairs(v) do
+			s = s..tostring(b).." "
 		end
-		v[i] = b
+		print(s)
 	end
-	return v
 end
 
-function matrix_dot_vector(matrix, vector)
-	local v = {}
-	for i = 1, #matrix do
-		v[i] = vector_multiplication(matrix[i], vector)
+local function MultiplyMatrices(matrix1, matrix2)
+	assert(#matrix1[1] == #matrix2)
+	local rmatrix = {}
+	local n = #matrix2[1]
+	local m = #matrix2
+	for i = 1, #matrix1 do
+		rmatrix[i] = {}
+		for j = 1, n do
+			local s = 0
+			for m1 = 1, m do
+				s = s + matrix1[i][m1] * matrix2[m1][j]
+			end
+			rmatrix[i][j] = s
+		end
 	end
-	return v
+	return rmatrix
 end
-
-function determine_line_coefficients(dot_a, dot_b)
-
-end
-
-function vector_length(vector)
-	local s = 0
-	for _, v in ipairs(vector) do
-		s = s + v^2
-	end
-	s = math.sqrt(s)
-	return s
-end
-
-local layout = {326,326,326,326,326,326}
-
-local input_n = 326
-local output_n = 15
 
 local function LoadCheckPoints(str)
 
@@ -120,19 +110,81 @@ local function SaveCheckpoint(tbl)
 
 end
 
-local function InitializeRandomly(layout, input_n, output_n)
-	local weights = {}
-	for layer = 1, #layout do
-		weights[layer] = {}
-		for n = 1, #layout[layer] do
-			weights[layer][n] = {}
-			for i = 1, input_n do
-				weights[layer][n][i] = math.random()
+e = 2.7182818
+local function sigmoid(x)
+	return 1 / (1 + e ^ (-x))
+end
+
+local function CreateLayer(n_inputs, n_neurons)
+	local Layer = {}
+	Layer.weights = {}
+	for i = 1, n_inputs do
+		Layer.weights[i] = {}
+		for j = 1, n_neurons do
+			Layer.weights[i][j] = (math.random() - .5) * 20
+		end
+	end
+	Layer.biases = {}
+	for i = 1, n_neurons do
+		Layer.biases[i] = 0
+	end
+
+	function Layer.forward(inputs)
+		local output = MultiplyMatrices(inputs, (Layer.weights))
+		for i = 1, #inputs do
+			for j = 1, #Layer.biases do
+				output[i][j] = output[i][j] + Layer.biases[j]
+			end
+		end--]]
+		Layer.output = output
+	end
+
+	function Layer.sigmoid()
+		for i = 1, #Layer.output do
+			for j = 1, #Layer.output[i] do
+				Layer.output[i][j] = sigmoid(Layer.output[i][j])
 			end
 		end
 	end
+
+	function Layer.custom_logit()
+		for i = 1, #Layer.output do
+			for j = 1, #Layer.output[i] do
+				Layer.output[i][j] = custom_logit(Layer.output[i][j])
+			end
+		end
+	end
+
+	return Layer
 end
 
-a = InitializeRandomly(layout, input_n, output_n)
+inputs = {{1,2,0,.4},}
+--	  {12,.1,1,-12}} 
 
-print()
+layer = CreateLayer(4,2) -- dis is ma playground, ai like it
+layer2 = CreateLayer(2,3)
+layer3 = CreateLayer(3,4)
+layer4 = CreateLayer(4,5)
+
+layer.forward(inputs)
+layer.sigmoid()
+
+matrixout(layer.output)
+
+
+layer2.forward(layer.output)
+layer2.custom_logit()
+
+matrixout(layer2.output)
+
+
+layer3.forward(layer2.output)
+layer3.sigmoid()
+
+matrixout(layer3.output)
+
+
+layer4.forward(layer3.output)
+layer4.sigmoid()
+
+matrixout(layer4.output)
