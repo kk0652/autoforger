@@ -115,6 +115,13 @@ local function sigmoid(x)
 	return 1 / (1 + e ^ (-x))
 end
 
+local function custom_logit(x)
+	local r = 0.15 * math.log(x / (1 - x)) + 0.5
+	if r > 1 or x > 1 then return 1 end
+	if r < 0 or x < 0 then return 0 end
+	return r
+end
+
 local function CreateLayer(n_inputs, n_neurons)
 	local Layer = {}
 	Layer.weights = {}
