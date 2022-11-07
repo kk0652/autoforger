@@ -106,3 +106,33 @@ function vector_length(vector)
 	s = math.sqrt(s)
 	return s
 end
+
+local layout = {326,326,326,326,326,326}
+
+local input_n = 326
+local output_n = 15
+
+local function LoadCheckPoints(str)
+
+end
+
+local function SaveCheckpoint(tbl)
+
+end
+
+local function InitializeRandomly(layout, input_n, output_n)
+	local weights = {}
+	for layer = 1, #layout do
+		weights[layer] = {}
+		for n = 1, #layout[layer] do
+			weights[layer][n] = {}
+			for i = 1, input_n do
+				weights[layer][n][i] = math.random()
+			end
+		end
+	end
+end
+
+a = InitializeRandomly(layout, input_n, output_n)
+
+print()

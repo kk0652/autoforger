@@ -5,15 +5,8 @@ local BINARY_NUMERATION = false
 
 function Brain:Initialize(plr)
 	fns.print("initializing brain")
-	if plr.autof_brainTask == nil then
-		plr.autof_brainTask = plr:DoPeriodicTask(FRAMES * 10, function()
-			Brain.mobs = plr.autofSensors.GetMobsDataTable()
-			Brain.team = plr.autofSensors.GetTeamDataTable()
-			Brain.items = plr.autofSensors.GetItemsDataTable()
-		end)
-	end
 
-	self.normalizedSettings = {}
+	self.owner = plr
 
 	self.actionlist = {
 		'idle',
@@ -138,30 +131,30 @@ end
 
 local function FromLocalToGlobal(index, case) -- return in-game instance from an index for brain table
 	fns.print('From local to global call [', index, case, ']')
-	if case == 'player' and Brain.team[index] then
+	if case == 1 and Brain.team[index] then
 		return Ents[Brain.team[index].guid]
-	elseif case == 'mob' and Brain.mobs[index] then
+	elseif case == 2 and Brain.mobs[index] then
 		return Ents[Brain.mobs[index].guid]
-	elseif case == 'item' and Brain.items[index] then
+	elseif case == 3 and Brain.items[index] then
 		return Ents[Brain.items[index].guid]
 	end
 end
 
 local function FromGlobalToLocal(guid, case) --  return index from brain table from guid
-	fns.print('From global to local call [', guid, "("..(Ents[guid] and Ents[guid].prefab or "unexistent inst")..")", case, ']')
-	if case == 'player' then
+	--fns.print('From global to local call [', guid, "("..(Ents[guid] and Ents[guid].prefab or "unexistent inst")..")", case, ']')
+	if case == 1 then
 		for i = 1, #Brain.team do
 			if Brain.team[i].guid == guid then
 				return i
 			end
 		end
-	elseif case == 'mob' then
+	elseif case == 2 then
 		for i = 1, #Brain.mobs do
 			if Brain.mobs[i].guid == guid then
 				return i
 			end
 		end
-	elseif case == 'item' then
+	elseif case == 3 then
 		for i = 1, #Brain.items do
 			if Brain.items[i].guid == guid then
 				return i
@@ -254,6 +247,7 @@ local function ResolveSlotInNumbers(slot)
 end
 
 function Brain:GetNormalizedMobData()
+	Brain.mobs = Brain.owner.autofSensors.GetMobsDataTable()
 	local normalized = {}
 	local t, j
 	for i = 1, MOB_MEMORY_SIZE do
@@ -278,6 +272,7 @@ function Brain:GetNormalizedMobData()
 end
 
 function Brain:GetNormalizedTeamData()
+	Brain.team = Brain.owner.autofSensors.GetTeamDataTable()
 	local normalized = {}
 	for i = 1, PLAYER_MEMORY_SIZE do
 		if Brain.team[i] then
@@ -299,6 +294,7 @@ function Brain:GetNormalizedTeamData()
 end
 
 function Brain:GetNormalizedItemData()
+	Brain.items = Brain.owner.autofSensors.GetItemsDataTable()
 	local normalized = {}
 	local slot
 	for i = 1, ITEM_MEMORY_SIZE do
@@ -326,16 +322,16 @@ function Brain:GetNormalizedArenaEntsData() -- heal circles and fissures
 	local normalized = {}
 	local healz = ThePlayer.autofSensors.GetHealingCircles()
 	local fissures = ThePlayer.autofSensors.GetFissures()
-	for i = 1, 4 do
+	for i = 1, 2 do
 		if healz[i] then
 			normalized[i] = {1, GetNormalizedPosition(healz[i])}
 		else
 			normalized[i] = {0, 0, 0}
 		end
 	end
-	for i = 5, 10 do
-		if fissures[i - 4] then
-			normalized[i] = {1, GetNormalizedPosition(fissures[i][1]), fissures[i][2]}
+	for i = 3, 5 do
+		if fissures[i - 2] then
+			normalized[i] = {1, GetNormalizedPosition(fissures[i - 2][1]), fissures[i - 2][2]}
 		else
 			normalized[i] = {0, 0, 0, 0}
 		end
@@ -394,7 +390,10 @@ function Brain:GetNormalizedAction(action)
 	j = j + 2
 	if action.name == 'attack' then
 		normalized[j] = 1
-		normalized[j + 1] = FromGlobalToLocal(action.params, 2) / MOB_MEMORY_SIZE
+		normalized[j + 1] = (FromGlobalToLocal(action.params, 2) or 0) / MOB_MEMORY_SIZE
+		if normalized[j + 1] == 0 then
+			fns.print("I couldn't figure out who exactly you were attacking, but okay, I'll let it slip")
+		end
 	else
 		normalized[j] = 0
 		normalized[j + 1] = 0
@@ -402,7 +401,11 @@ function Brain:GetNormalizedAction(action)
 	j = j + 2
 	if action.name == 'pickup' then
 		normalized[j] = 1
-		normalized[j + 1] = FromGlobalToLocal(action.params, 3) / ITEM_MEMORY_SIZE
+		normalized[j + 1] = (FromGlobalToLocal(action.params, 3) or 0) / ITEM_MEMORY_SIZE
+		if normalized[j + 1] == 0 then
+	--		fns.print('you\'re picking shit up so fast i can\'t even realize it')
+			fns.print("You likely have picked item too fast after you dropped it, but it's okay, I'm not crashing yet")
+		end
 	else
 		normalized[j] = 0
 		normalized[j + 1] = 0
@@ -426,7 +429,10 @@ function Brain:GetNormalizedAction(action)
 	j = j + 2
 	if action.name == 'revive' then
 		normalized[j] = 1
-		normalized[j + 1] = FromGlobalToLocal(action.params, 1) / PLAYER_MEMORY_SIZE
+		normalized[j + 1] = (FromGlobalToLocal(action.params, 1) or 0) / PLAYER_MEMORY_SIZE
+		if normalized[j + 1] == 0 then
+			fns.print("This event should be so rare, I don't expect anyone actually bumping into this")
+		end
 	else
 		normalized[j] = 0
 		normalized[j + 1] = 0
@@ -437,7 +443,7 @@ end
 function Brain:LabelDataAndWaitForNext(normalized_actions)
 	local labelled = {}
 	if Brain.fetchedData then
-		labelled = {label = GetNormalizedAction(normalized_actions), data = Brain.fetchedData}
+		labelled = {label = normalized_actions, data = Brain.fetchedData}
 	end
 	Brain.fetchedData = Brain:FetchAllNormalizedData()
 	return labelled

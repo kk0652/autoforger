@@ -29,7 +29,7 @@ end
 
 local function FindEntities(tags, r)
 	local x, _, z = ThePlayer:GetPosition():Get()
-	return TheSim:FindEntities(x, 0, z, r or 60, tags)
+	return TheSim:FindEntities(x, 0, z, r or 66, tags)
 end
 
 local function GetRelativePos(inst)
@@ -54,6 +54,7 @@ local function IsInHeal(inst)
 end
 
 local function ResolveItemSlot(inst)
+	if not inst then fns.print("Item slot can't be resolved because there is no item, returning head slot") return 'head' end
 	if fns.CheckDebugString(inst, "build: armor") then
 		return 'body'
 	elseif fns.CheckDebugString(inst, 'build: hat') then
@@ -62,6 +63,8 @@ local function ResolveItemSlot(inst)
 		return 'hand'
 	end
 end
+
+Sensors.ResolveItemSlot = ResolveItemSlot
 
 function Sensors.InitializeScanner(plr)
 	if plr.autofScanner ~= nil then return end
@@ -336,7 +339,7 @@ function Sensors.GetFissures()
 	return fs
 end
 
-function Sensors.CollectAndSerializeData(inclplayers, inclmobs, inclitems)
+function Sensors.CollectAndSerializeData(inclplayers, inclmobs, inclitems, inclarenaents)
 	local data = ""
 	if inclplayers then
 		data =  data.."\nPlayers data:"
@@ -354,6 +357,15 @@ function Sensors.CollectAndSerializeData(inclplayers, inclmobs, inclitems)
 		data = data.."\nItems data:"
 		for k,v in ipairs(Sensors.GetItemsDataTable()) do
 			data = data.."\n Item "..k.." | "..v.prefab.." | ".."Position: "..tostring(v.rel_pos)
+		end
+	end
+	if inclarenaents then
+		data = data.."\nArena ents data:"
+		for k,v in ipairs(healz) do
+			data = data.."\nHeal "..k.." - Position: "..(healz[k] and tostring(GetRelativePos(healz[k])) or "none")
+		end
+		for k,v in ipairs(fissures) do
+			data = data.."\nFissure "..k.." - Position: "..(fissures[k] and tostring(GetRelativePos(fissures[k])) or "none")
 		end
 	end
 	return data

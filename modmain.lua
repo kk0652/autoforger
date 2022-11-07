@@ -1,6 +1,7 @@
 GLOBAL.setmetatable(env, {__index = function(t, k) return GLOBAL.rawget(GLOBAL, k) end})
 
 local DEBUG = true
+local actionsout = false
 
 if TheNet:GetServerGameMode() ~= "lavaarena" then return end
 
@@ -19,6 +20,8 @@ local function sus(modroot)
 		return true
 	end
 end
+
+local sussy = false
 
 local function SUS(modroot)
 	local f = io.open(modroot..'scripts/forge_main.lua')
@@ -42,6 +45,7 @@ end
 for k,v in pairs(ModManager.mods) do
 	if v.modinfo.name:find("ReForged") and (v.modinfo.version ~= "2.03.5" or v.modinfo.name:find("Git")) then
 		if sus(v.MODROOT) then
+			sussy = true
 			SUS(v.MODROOT)
 		end
 	end
@@ -78,15 +82,50 @@ GLOBAL.fns = require('autof_functions')
 local sensors = require('autof_sensors')
 
 -- this is not tuning, do not touch it, it will break if you do
-GLOBAL.MOB_MEMORY_SIZE = 24
-GLOBAL.PLAYER_MEMORY_SIZE = 14
-GLOBAL.ITEM_MEMORY_SIZE = 24
-
+GLOBAL.MOB_MEMORY_SIZE = 16
+GLOBAL.PLAYER_MEMORY_SIZE = 8
+GLOBAL.ITEM_MEMORY_SIZE = 16
 
 local manualControl = true
 
 local BIG_DATA = {}
 local count = 1
+
+local function CustomSerializeArray(array)
+	local str = '{'
+	for i = 1, #array do
+		str = str..array[i]..','
+	end
+	return str..'}'
+end
+
+local function GetThreeStrings(data)
+	local newdata = {}
+	newdata[1] = data.description
+	newdata[2] = CustomSerializeArray(data.label)
+	newdata[3] = CustomSerializeArray(data.data)
+	return newdata
+end
+
+local function WriteData()
+	if count > 1 then
+		local file = io.open(env.MODROOT..tostring(os.time()).."forge.data", 'w')
+		local strs
+		for i = 1, count - 1 do
+			strs = GetThreeStrings(BIG_DATA[i])
+			file:write(strs[1]..'\n')
+			file:write(strs[2]..'\n')
+			file:write(strs[3]..'\n')
+		end
+		file:close()
+	end
+end
+
+AddPrefabPostInit('world', function(inst) 
+	inst:ListenForEvent("endofmatch", function() 
+		inst:DoTaskInTime(2, WriteData) 
+	end)
+end)
 
 AddPlayerPostInit(function(plr)
 
@@ -105,11 +144,11 @@ AddPlayerPostInit(function(plr)
 
 	-- [[
 	local prevTarget
-	local isAttacking_button, isAttacking_click, likelyacheat -- ඞඞඞ
+	local isAttacking_button, isAttacking_click
 	local isCasting
 	local position
 	local droppedItem, pickedItem
-	local lastAttackTime = - 2
+	local lastSuccessfulHitTime = 0
 	local guid
 	local revivedCorpse
 	local startRevive = -5
@@ -157,8 +196,6 @@ AddPlayerPostInit(function(plr)
 			elseif rpc == RPC.LeftClick and arg1 == ACTIONS.ATTACK.code then
 				isAttacking_click = true
 				prevTarget = arg4
-				if arg8 then likelyacheat = true end -- ඞඞඞ
-
 
 			elseif rpc == RPC.AttackButton then
 				isAttacking_button = true
@@ -170,7 +207,6 @@ AddPlayerPostInit(function(plr)
 				isAttacking_click = false
 
 			elseif rpc == RPC.StopControl and arg1 == ACTIONS.ABANDON_QUEST.code then
-				prevTargetAttackTime = GetTime()
 				isAttacking_button = false
 
 			end
@@ -201,7 +237,7 @@ AddPlayerPostInit(function(plr)
 				elseif isCasting and position then
 					action = {name = 'castaoe', params = position}
 				elseif droppedItem and guid then
-					action = {name = 'drop', params = guid}
+					action = {name = 'drop', params = plr.autofSensors.ResolveItemSlot(Ents[guid])}
 				elseif (isAttacking_click or isAttacking_button) and prevTarget then
 					action = {name = 'attack', params = prevTarget.GUID}
 				elseif math.abs(z) + math.abs(x) > 1.2 then
@@ -210,8 +246,8 @@ AddPlayerPostInit(function(plr)
 					action = {name = 'idle'} -- supah idol
 				end
 
-				if likelyacheat then isAttacking_click = false end
 				if Profile:GetMovementPredictionEnabled() then isAttacking_button = false end
+				if isAttacking_click and GetTime() - lastSuccessfulHitTime > 1 then isAttacking_click = false end
 
 				isCasting = false
 				droppedItem = false
@@ -221,13 +257,18 @@ AddPlayerPostInit(function(plr)
 					revivedCorpse = false
 					guid = false
 				end
+				
+				if DEBUG and actionsout then fns.print(SerializeTable(action)) end
 
-				local data = plr.autofBrain:LabelDataAndWaitForNext(action)
+				local label = plr.autofBrain:GetNormalizedAction(action)
+				local data = plr.autofBrain:LabelDataAndWaitForNext(label)
+				data.description = action.name
 
-				if DEBUG then fns.print(SerializeTable(data.label)) end
-
-				--BIG_DATA[count] = data
-				--count = count + 1
+				if data.data then
+					fns.print(#data.data, #data.label)
+					BIG_DATA[count] = data
+					count = count + 1
+				end
 			end
 			plr.autofBrain.previousPosition = pos
 
@@ -237,6 +278,29 @@ AddPlayerPostInit(function(plr)
 
 end)
 
+AddPrefabPostInit('damage_number', function(inst)
+	if not TheWorld.ismastersim then 
+		inst:ListenForEvent("damagedirty", function()
+			local parent = inst.entity:GetParent() 
+			if ThePlayer and parent == ThePlayer and inst.target:value() then 
+				if not inst.target:value():HasTag("player") then 
+					lastSuccessfulHitTime = GLOBAL.GetTime()
+				end 
+			end 
+		end) 
+	else 
+		local old_PushDamageNumber = inst.PushDamageNumber 
+		inst.PushDamageNumber = function(player, target, damage, ...)
+			if GLOBAL.ThePlayer and player == GLOBAL.ThePlayer and target then 
+				if not target:HasTag("player") then 
+					lastSuccessfulHitTime = GLOBAL.GetTime() 
+				end 
+			end 
+			old_PushDamageNumber(player, target, damage, ...) 
+		end 
+	end 
+end)
+
 --[[
 TheInput:AddKeyDownHandler(KEY_PLUS, function()
 	if not (fns.IsInGame() or fns.IsHUDScreen()) then return end
@@ -244,11 +308,16 @@ TheInput:AddKeyDownHandler(KEY_PLUS, function()
 	fns.print("Toggling AI "..(manualControl and "on" or "off"))
 end)
 --]]
+TheInput:AddKeyDownHandler(KEY_B, function()
+	if not (fns.IsInGame() or fns.IsHUDScreen()) or not DEBUG or not IsCtrlPressed() then return end
+	actionsout = not actionsout
+	fns.print(#BIG_DATA)
+end)
 TheInput:AddKeyDownHandler(KEY_N, function()
 	if not (fns.IsInGame() or fns.IsHUDScreen()) or not DEBUG or not IsCtrlPressed() then return end
-	print(sensors.CollectAndSerializeData(true, true, true))
+	print(ThePlayer.autofSensors.CollectAndSerializeData(true, true, true, true))
 end)
 TheInput:AddKeyDownHandler(KEY_M, function()
 	if not (fns.IsInGame() or fns.IsHUDScreen()) or not DEBUG or not IsCtrlPressed() then return end
-	print(SerializeTable(ThePlayer.autofBrain:GetNormalizedMobData()))
+	print(SerializeTable(ThePlayer.autofBrain.fetchedData))
 end)
