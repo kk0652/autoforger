@@ -364,8 +364,8 @@ function Brain:FetchAllNormalizedData()
 	return fns.FlattenSecondAndExtendFirst({}, {
 		Brain:GetNormalizedTime(),
 		Brain:GetNormalizedPlayerData(),
-		Brain:GetNormalizedMobData(),
 		Brain:GetNormalizedTeamData(),
+		Brain:GetNormalizedMobData(),
 		Brain:GetNormalizedItemData(),
 		Brain:GetNormalizedArenaEntsData(),
 	})

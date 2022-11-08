@@ -35,6 +35,7 @@ end
 local function GetRelativePos(inst)
 	local center = TheWorld.net.center_pos
 	local x, _, z = inst.Transform:GetWorldPosition()
+	if not x or not z then return Vector3(0,0,0) end
 	return Vector3(x - center.x, 0, z - center.z)
 end
 

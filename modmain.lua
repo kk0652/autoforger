@@ -99,11 +99,10 @@ local function CustomSerializeArray(array)
 	return str..'}'
 end
 
-local function GetThreeStrings(data)
+local function GetTwoStrings(data)
 	local newdata = {}
-	newdata[1] = data.description
-	newdata[2] = CustomSerializeArray(data.label)
-	newdata[3] = CustomSerializeArray(data.data)
+	newdata[1] = CustomSerializeArray(data.label)
+	newdata[2] = CustomSerializeArray(data.data)
 	return newdata
 end
 
@@ -112,10 +111,9 @@ local function WriteData()
 		local file = io.open(env.MODROOT..tostring(os.time()).."forge.data", 'w')
 		local strs
 		for i = 1, count - 1 do
-			strs = GetThreeStrings(BIG_DATA[i])
+			strs = GetTwoStrings(BIG_DATA[i])
 			file:write(strs[1]..'\n')
 			file:write(strs[2]..'\n')
-			file:write(strs[3]..'\n')
 		end
 		file:close()
 	end
@@ -127,7 +125,9 @@ AddPrefabPostInit('world', function(inst)
 	end)
 end)
 
-AddPlayerPostInit(function(plr)
+AddComponentPostInit('playercontroller', function(cntr)
+	if cntr.inst ~= GLOBAL.ThePlayer then return end
+	plr = cntr.inst
 
 	AddClassPostConstruct('widgets/itemtile', function(self) -- top 10 anime best practices
 		if self.item:HasTag("rechargeable") then
@@ -140,7 +140,6 @@ AddPlayerPostInit(function(plr)
 			end
 		end
 	end)
-
 
 	-- [[
 	local prevTarget
@@ -183,7 +182,13 @@ AddPlayerPostInit(function(plr)
 
 			if (rpc == RPC.ActionButton or rpc == RPC.LeftClick) and arg1 == ACTIONS.PICKUP.code then
 				pickedItem = true
-				guid = (rpc ~= RPC.ActionButton and arg4.GUID or arg2.GUID)
+				if rpc ~= RPC.ActionButton and arg4 then
+					guid = arg4.GUID
+				elseif arg2 then
+					guid = arg2.GUID
+				else
+					pickedItem = false
+				end
 
 			elseif rpc == RPC.LeftClick and arg1 == ACTIONS.CASTAOE.code then
 				isCasting = true
@@ -225,6 +230,7 @@ AddPlayerPostInit(function(plr)
 		plr.autofActionWatcher = plr:DoPeriodicTask(.5, function()
 			local posDelta, x, z
 			local pos = plr:GetPosition()
+			local previousaction
 			if plr.autofBrain.previousPosition then
 				x = pos.x - plr.autofBrain.previousPosition.x
 				z = pos.z - plr.autofBrain.previousPosition.z
@@ -260,15 +266,18 @@ AddPlayerPostInit(function(plr)
 				
 				if DEBUG and actionsout then fns.print(SerializeTable(action)) end
 
-				local label = plr.autofBrain:GetNormalizedAction(action)
-				local data = plr.autofBrain:LabelDataAndWaitForNext(label)
-				data.description = action.name
+				if not ((previousaction == 'attack' or math.random() > .3) and action.name == 'idle') then 
 
-				if data.data then
-					fns.print(#data.data, #data.label)
-					BIG_DATA[count] = data
-					count = count + 1
+					local label = plr.autofBrain:GetNormalizedAction(action)
+					local data = plr.autofBrain:LabelDataAndWaitForNext(label)
+					data.description = action.name
+
+					if data.data then
+						BIG_DATA[count] = data
+						count = count + 1
+					end
 				end
+				previousaction = action.name
 			end
 			plr.autofBrain.previousPosition = pos
 
