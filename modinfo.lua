@@ -1,4 +1,4 @@
-name = "autoforger"
+name = "work in progress"
 description = ""
 author = ""
 version = "-0"

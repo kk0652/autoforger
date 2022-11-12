@@ -216,7 +216,7 @@ function Sensors.GetMobsDataTable()
 	local epicents = FindEntities({"LA_mob", "epic"}) -- epik! epicckck1!\
 	for i = 1, #epicents do
 		if not epicents[i].mark then
-			for k = j, 1, -1 do
+			for k = j - 1, 1, -1 do
 				if not mobsData[k].epic then
 					mobsData[k] = ExtractDataFromMob(epicents[i])
 					j = k
@@ -334,7 +334,7 @@ function Sensors.GetFissures()
 	for i = 1, #fissures do
 		fs[i] = {
 			GetRelativePos(fissures[i]),
-			(fissures[i].prefab:find("lava") and true or false)
+			(fissures[i].prefab:find("lava") and 1 or 0)
 		}
 	end
 	return fs
