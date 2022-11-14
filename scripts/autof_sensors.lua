@@ -46,7 +46,7 @@ function Sensors.GetSelfHPPercent()
 end
 
 local function GetAggro(inst)
-	local t = inst.replica.combat:GetTarget()
+	local t = inst and inst.replica and inst.replica.combat and inst.replica.combat:GetTarget() or nil
 	return t and t.userid or 'none'
 end
 

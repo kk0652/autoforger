@@ -169,11 +169,11 @@ end
 
 local function GetResolvedAndNormalizedUserid(userid)
 	for i = 1, #Brain.team do
-		if Brain.team[i].userid == userid then
+		if Brain.team[i] and Brain.team[i].userid == userid then
 			return BINARY_NUMERATION and Brain.binaryTeamIndices[i] or i / 16
 		end
 	end
-	return BINARY_NUMERATION and Brain.binaryTeamIndices[16] or 1. -- 16 is unknown player / none aggro at all
+	return BINARY_NUMERATION and Brain.binaryTeamIndices[16] or 1. -- 16 is unknown player / none aggro at all / you
 end
 
 local function GetNormalizedPrefab(prefab, case, slot)
@@ -442,11 +442,11 @@ end
 
 function Brain:LabelDataAndWaitForNext(normalized_actions)
 	local labelled = {}
-	if Brain.fetchedData then
+	if Brain.fetchedData and normalized_actions then
 		labelled = {label = normalized_actions, data = Brain.fetchedData}
 	end
 	Brain.fetchedData = Brain:FetchAllNormalizedData()
-	return labelled
+	return normalized_actions and labelled or nil
 end
 
 return Brain

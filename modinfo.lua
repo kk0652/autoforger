@@ -1,7 +1,7 @@
 name = "work in progress"
 description = ""
 author = ""
-version = "-0"
+version = "-0 + 2eps"
 forumthread = ""
 dont_starve_compatible = true
 reign_of_giants_compatible = true

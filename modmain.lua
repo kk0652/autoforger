@@ -128,6 +128,7 @@ end)
 AddComponentPostInit('playercontroller', function(cntr)
 	if cntr.inst ~= GLOBAL.ThePlayer then return end
 	plr = cntr.inst
+	if plr.prefab == 'spectator' then return end
 
 	AddClassPostConstruct('widgets/itemtile', function(self) -- top 10 anime best practices
 		if self.item:HasTag("rechargeable") then
@@ -184,7 +185,7 @@ AddComponentPostInit('playercontroller', function(cntr)
 				pickedItem = true
 				if rpc ~= RPC.ActionButton and arg4 then
 					guid = arg4.GUID
-				elseif arg2 then
+				elseif type(arg2) ~= 'number' then
 					guid = arg2.GUID
 				else
 					pickedItem = false
@@ -220,7 +221,6 @@ AddComponentPostInit('playercontroller', function(cntr)
 		_srpc(proxy, rpc, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10) -- the last one might be excessive
 	end
 	--]]
-
 	plr:DoTaskInTime(.6, function()
 		plr.autofBrain = brain
 		plr.autofSensors = sensors
@@ -267,12 +267,13 @@ AddComponentPostInit('playercontroller', function(cntr)
 				if DEBUG and actionsout then fns.print(SerializeTable(action)) end
 
 				if not ((previousaction == 'attack' or math.random() > .3) and action.name == 'idle') then 
-
-					local label = plr.autofBrain:GetNormalizedAction(action)
+					local label
+					if plr.autofBrain.items and plr.autofBrain.team and plr.autofBrain.mobs then
+						label = plr.autofBrain:GetNormalizedAction(action)
+					end
 					local data = plr.autofBrain:LabelDataAndWaitForNext(label)
-					data.description = action.name
 
-					if data.data then
+					if data and data.data then
 						BIG_DATA[count] = data
 						count = count + 1
 					end
